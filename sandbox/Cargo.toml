@@ -1,0 +1,10 @@
+[package]
+name = "sandbox"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+num-bigint = "0.4.6"
+num-integer = "0.1.46"
+num-primes = "0.3"
+num-traits = "0.2"
