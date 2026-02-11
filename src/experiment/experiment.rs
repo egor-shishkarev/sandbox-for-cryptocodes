@@ -1,3 +1,0 @@
-struct Experiment {
-    seed: BigUint,
-}

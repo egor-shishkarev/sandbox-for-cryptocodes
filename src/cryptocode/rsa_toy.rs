@@ -18,7 +18,7 @@ impl Algorithm for RsaToy {
         let bytes = message.as_bytes();
         let n = &self.modulus;
         let e = &self.public_exponent;
-
+        
         let modulus_len = n.to_bytes_be().len();
         let plain_block_len = modulus_len - 1;
 

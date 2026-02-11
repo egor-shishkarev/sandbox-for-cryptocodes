@@ -2,9 +2,12 @@ use crate::{attack::{Attack, BruteForceFactorizationAttack}, cryptocode::{Algori
 use num_bigint::{self, BigUint};
 use num_traits::Zero;
 mod attack;
+mod attack_report;
 mod cryptocode;
 mod utils;
 
+
+// TODO - переименовать файлы в папках, лучше чтобы они не совпадали с названиями папок
 fn main() {
     let allowed_algorithms: Vec<String> = [
         RsaToy::name(),
@@ -36,8 +39,8 @@ fn main() {
 
         println!("Производим атаку на открытый ключ");
         let mut brute_force_factorization_attack = BruteForceFactorizationAttack::new();
-        brute_force_factorization_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values);
-        println!("Результат атаки - {:?}", &brute_force_factorization_attack);
+        let result = brute_force_factorization_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values);
+        println!("Результат атаки - {:?}", &result);
     }
 
     println!("Завершение программы");
