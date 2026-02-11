@@ -12,7 +12,7 @@ pub struct RsaToy {
 
 // Можно еще сделать создание алгоритма с нужными параметрами, допустим длина секретов и т.д.
 impl Algorithm for RsaToy {
-    fn encode(&self, message: &str) -> Vec<BigUint> {
+    fn encode(&self, message: &str) -> Vec<Vec<u8>> {
         let bytes = message.as_bytes();
         let n = &self.modulus;
         let e = &self.public_exponent;
@@ -35,14 +35,15 @@ impl Algorithm for RsaToy {
             i += chunk_size;
         }
 
-        encoded // TODO - переводить в байты или что-то типа того. Надо посмотреть как настоящий RSA это делает
+        Self::convert_encoded_to_bytes(encoded)
     }
 
-    fn decode(&self, bytes: Vec<BigUint>) -> String {
+    fn decode(&self, bytes: Vec<Vec<u8>>) -> String {
         let mut decoded_values: Vec<u8> = Vec::new();
 
         for value in bytes {
-            let decoded_value = value.modpow(&self.private_exponent, &self.modulus);
+            let number =  BigUint::from_bytes_be(&value);
+            let decoded_value = number.modpow(&self.private_exponent, &self.modulus);
 
             let block = decoded_value.to_bytes_be();
             decoded_values.extend(block);
@@ -117,5 +118,33 @@ impl RsaToy {
             return None;
         }
         Some((x % m + m) % m)
+    }
+
+    fn convert_encoded_to_bytes(encoded: Vec<BigUint>) -> Vec<Vec<u8>> {
+        // В идеале перед зашифровкой нужно добавить первые два константных байта, потом рандом, потом 0x00, и потом само сообщение
+        // Но так как это все-таки песочница, думаю этим можно пренебречь
+
+        let mut bytes_vector: Vec<Vec<u8>> = Vec::new();
+
+        for value in encoded {
+            let sub_vector: Vec<u8> = value.to_bytes_be();
+            bytes_vector.push(sub_vector);
+        }
+
+        bytes_vector
+    }
+
+    pub fn get_utf8_representation(bytes_vector: Vec<Vec<u8>>) -> String {
+        let mut representation = String::new();
+
+        for vector in bytes_vector {
+            for byte in vector {
+                representation.push_str(&format!("{:02X} ", byte));
+            }
+
+        }
+
+        representation.pop();
+        representation
     }
 }

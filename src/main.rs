@@ -14,14 +14,13 @@ fn main() {
     let choose = console_helper::welcome_print(allowed_algorithms);
     println!("Выбранный алгоритм - {}", choose);
 
-    let rsa = cryptocode::RsaToy::new(64, BigUint::zero()); 
+    let rsa = cryptocode::RsaToy::new(20, BigUint::zero()); 
     println!("Значения для RSA - публичная экспонента - {}, n - {}", &rsa.public_exponent, &rsa.modulus);
     println!("Введите сообщение, которое хотите зашифровать => ");
     let message = read_line();
     let encoded_values = rsa.encode(&message);
     println!("\"Закодированное сообщение\" - {:?}", &encoded_values);
+    println!("Закодированное сообщение в виде UTF8 - {}", cryptocode::RsaToy::get_utf8_representation(encoded_values.clone()));
     let decoded_value = rsa.decode(encoded_values);
     println!("\"Раскодированное сообщение\" - {:?}", &decoded_value);
 }
-
-
