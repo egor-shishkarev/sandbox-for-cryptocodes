@@ -52,19 +52,19 @@ impl BruteForceFactorizationAttack {
     fn factorize(modulus: BigUint) -> (usize, usize, usize){
         let end_range = modulus.sqrt().to_usize().unwrap();
 
-        let mut first_primal: usize = 0;
-        let mut second_primal: usize = 0;
+        let mut first_prime: usize = 0;
+        let mut second_prime: usize = 0;
 
         for i in 3..=end_range { // TODO - тут можно еще с шагом 2 делать
             if &modulus % i == BigUint::zero() {
-                first_primal = i;
-                second_primal = (&modulus / i).to_usize().unwrap();
+                first_prime = i;
+                second_prime = (&modulus / i).to_usize().unwrap();
             }
         }
 
-        debug_assert!(first_primal != 0);
-        debug_assert!(second_primal != 0);
-        (first_primal, second_primal, first_primal - 3)
+        debug_assert!(first_prime != 0);
+        debug_assert!(second_prime != 0);
+        (first_prime, second_prime, first_prime - 3)
     }
 
     // TODO - встречается в двух местах

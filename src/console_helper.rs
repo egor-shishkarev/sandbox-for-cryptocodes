@@ -1,15 +1,14 @@
-pub fn welcome_print(allowed_algorithms: Vec<String>) -> String {
+pub fn welcome_print(allowed_algorithms: Vec<String>) {
     println!("Добро пожаловать в песочницу для атак на криптокоды!\n");
     println!("Доступные алгоритмы для кодирования:");
     for algorithm in allowed_algorithms {
         println!("{algorithm}");
     }
-
-    println!("Введите номер интересующего алгоритма для проведения атак:");
-    read_line()
 }
 
-pub fn read_line() -> String {
+pub fn read_line(message: Option<&'static str>) -> String {
+    let message = message.unwrap_or("Введите значение =>");
+    println!("{} ", message);
     let mut buffer = String::new();
     std::io::stdin().read_line(&mut buffer).expect("Не удалось прочитать ввод");
 
