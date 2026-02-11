@@ -58,8 +58,9 @@ impl Algorithm for RsaToy {
         "RSA"
     }
 
-    fn id() -> u8 {
-        1
+    fn print_public_parameters(&self) {
+        println!("Длина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
+        println!("Публичные данные - ({}, {})", &self.public_exponent, &self.modulus);
     }
 }
 
@@ -74,11 +75,6 @@ impl RsaToy {
             public_exponent: e,
             modulus: n,
         }
-    }
-
-    pub fn print_public_parameters(&self) {
-        println!("Длина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
-        println!("Публичные данные - ({}, {})", &self.public_exponent, &self.modulus);
     }
 
     fn generate_secret_key(primes_length: usize, _seed: BigUint) -> (BigUint, BigUint, BigUint) {
