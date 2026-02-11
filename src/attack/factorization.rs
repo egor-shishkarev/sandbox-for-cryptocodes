@@ -26,10 +26,18 @@ impl Attack for BruteForceFactorizationAttack {
         "Количество повторов цикла в которых мы раскладываем modulus на множители"
     }
 
+    // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
+    // Короче обеспечить обособленность друг от друга
     fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>) {
         // Нужно просто :) факторизовать modulus, то есть разобрать на два множителя.
         let start = Instant::now();
-        let (p, q, iterations) = Self::factorize(modulus.clone());
+        let (p, q, iterations) = match Self::factorize(modulus.clone()) {
+            Some(v) => v,
+            None => {
+                println!("Слишком большое значение для перебора");
+                return
+            }
+        };
         let phi = (p - 1) * (q - 1);
         let d = Self::modinv(&public_exponent.to_bigint().unwrap(), &BigInt::from(phi)).unwrap();
 
@@ -49,22 +57,29 @@ impl BruteForceFactorizationAttack {
         }
     }
 
-    fn factorize(modulus: BigUint) -> (usize, usize, usize){
-        let end_range = modulus.sqrt().to_usize().unwrap();
+    fn factorize(modulus: BigUint) -> Option<(usize, usize, usize)> {
+        let end_range: usize = match modulus.sqrt().to_usize() {
+            Some(v) => v,
+            None => {
+                0
+            },
+        };
 
         let mut first_prime: usize = 0;
         let mut second_prime: usize = 0;
 
-        for i in 3..=end_range { // TODO - тут можно еще с шагом 2 делать
+        for i in (3..=end_range).step_by(2) {
             if &modulus % i == BigUint::zero() {
                 first_prime = i;
                 second_prime = (&modulus / i).to_usize().unwrap();
             }
         }
 
-        debug_assert!(first_prime != 0);
-        debug_assert!(second_prime != 0);
-        (first_prime, second_prime, first_prime - 3)
+        if first_prime == 0 || second_prime == 0 {
+            return None
+        }
+
+        Some((first_prime, second_prime, first_prime - 3))
     }
 
     // TODO - встречается в двух местах

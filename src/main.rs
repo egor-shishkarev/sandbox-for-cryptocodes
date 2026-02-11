@@ -1,45 +1,79 @@
-use crate::{attack::{Attack, BruteForceFactorizationAttack}, console_helper::{read_line, welcome_print}, cryptocode::{Algorithm, RsaToy}};
+use std::usize::MAX;
+
+use crate::{attack::{Attack, BruteForceFactorizationAttack}, utils::{read_line, welcome_print}, cryptocode::{Algorithm, RsaToy}, utils::get_utf8_representation};
 use num_bigint::{self, BigUint};
 use num_traits::Zero;
 mod attack;
-mod console_helper;
 mod cryptocode;
+mod utils;
 
 fn main() {
     let allowed_algorithms: Vec<String> = [
-        "1) RSA",
+        RsaToy::name(),
     ]
     .into_iter()
     .map(String::from)
     .collect();
 
-    welcome_print(allowed_algorithms);
+    welcome_print(&allowed_algorithms);
 
     loop {
-        let choice = read_line(Some("Введите номер интересующего алгоритма для проведения атак:"));
-        if choice.trim() == "0" {
+        let mut choice: usize = MAX;
+        loop {
+            let input = read_line(Some("Введите номер интересующего алгоритма для проведения атак:"));
+            choice = match input.trim().parse() {
+                Ok(v) => {
+                    if v > allowed_algorithms.len() {
+                        println!("Введено некорректное значение, повторите ввод");
+                        continue;
+                    }
+                    v
+                },
+                Err(_) => {
+                    println!("Введено некорректное значение, повторите ввод");
+                    continue;
+                }
+            };
+            break;
+        }
+        
+        if choice == 0 {
             break;
         }
 
-        println!("Выбранный алгоритм - {}", choice);
-        let primes_length: usize = read_line(Some("Введите желаемую длину простых чисел множителей (в битах)"))
-            .trim()
-            .parse()
-            .expect("Введите целое число");
+        let mut primes_length: usize = MAX;
+            
+        // TODO - переиспользовать
+        loop {
+            let input = read_line(Some("Введите желаемую длину простых чисел множителей не менее 8 (в битах)"));
+            primes_length = match input.trim().parse() {
+                Ok(v) => {
+                    if v < 8 {
+                        println!("Введено слишком маленькое значение, попробуйте ввести значение больше 8");
+                        continue;
+                    }
+                    v
+                },
+                Err(_) => {
+                    println!("Введено некорректное значение, повторите ввод");
+                    continue;
+                }
+            };
+            break;
+        }
+
+        
         let rsa = cryptocode::RsaToy::new(primes_length, BigUint::zero()); 
-        println!("Значения для RSA - публичная экспонента - {}, n - {}", &rsa.public_exponent, &rsa.modulus);
         let message = read_line(Some("Введите сообщение, которое хотите зашифровать => "));
         let encoded_values = rsa.encode(&message);
-        println!("\"Закодированное сообщение\" - {:?}", &encoded_values);
-        println!("Закодированное сообщение в виде UTF8 - {}", RsaToy::get_utf8_representation(encoded_values.clone()));
-        let decoded_value = rsa.decode(encoded_values.clone());
-        println!("\"Раскодированное сообщение\" - {:?}", &decoded_value);
+        println!("Закодированное сообщение в виде HEX - {}", get_utf8_representation(encoded_values.clone()));
 
-        println!("Производим атаку на открытый ключ и шифротекст");
-        let mut bruteForceFactorizationAttack = BruteForceFactorizationAttack::new();
-        bruteForceFactorizationAttack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values);
+        debug_assert!(rsa.decode(encoded_values.clone()) == message);
 
-        println!("Результат атаки - {:?}", &bruteForceFactorizationAttack);
+        println!("Производим атаку на открытый ключ");
+        let mut brute_force_factorization_attack = BruteForceFactorizationAttack::new();
+        brute_force_factorization_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values);
+        println!("Результат атаки - {:?}", &brute_force_factorization_attack);
     }
 
     println!("Завершение программы");

@@ -55,7 +55,7 @@ impl Algorithm for RsaToy {
     }
 
     fn name() -> &'static str {
-        "AES"
+        "RSA"
     }
 
     fn id() -> u8 {
@@ -66,7 +66,10 @@ impl Algorithm for RsaToy {
 impl RsaToy {
     pub fn new(primes_length: usize, _seed: BigUint) -> RsaToy {
         let (d, e, n) = Self::generate_secret_key(primes_length, BigUint::zero());
-        println!("Длина ключа - {} бит", n.to_bytes_le().len() * 8);
+        let key_len = n.to_bytes_le().len() * 8;
+        println!("Длина ключа - {} бит", key_len);
+        debug_assert!(key_len >= 16);
+    
         RsaToy {
             private_exponent: d,
             public_exponent: e,
@@ -134,19 +137,5 @@ impl RsaToy {
         }
 
         bytes_vector
-    }
-
-    pub fn get_utf8_representation(bytes_vector: Vec<Vec<u8>>) -> String {
-        let mut representation = String::new();
-
-        for vector in bytes_vector {
-            for byte in vector {
-                representation.push_str(&format!("{:02X} ", byte));
-            }
-
-        }
-
-        representation.pop();
-        representation
     }
 }
