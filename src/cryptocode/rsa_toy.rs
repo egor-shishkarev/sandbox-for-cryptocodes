@@ -66,6 +66,7 @@ impl Algorithm for RsaToy {
 impl RsaToy {
     pub fn new(primes_length: usize, _seed: BigUint) -> RsaToy {
         let (d, e, n) = Self::generate_secret_key(primes_length, BigUint::zero());
+        println!("Длина ключа - {} бит", n.to_bytes_le().len() * 8);
         RsaToy {
             private_exponent: d,
             public_exponent: e,
@@ -112,6 +113,7 @@ impl RsaToy {
         (g, x, y)
     }
 
+    // TODO - встречается в двух местах
     fn modinv(a: &BigInt, m: &BigInt) -> Option<BigInt> {
         let (g, x, _) = Self::egcd(a.clone(), m.clone());
         if g != BigInt::one() {
