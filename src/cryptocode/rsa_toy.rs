@@ -1,74 +1,54 @@
 use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
-use num_traits::{One, Zero, ToPrimitive};
+use num_traits::{One, Zero};
 
 use super::cryptocode::Algorithm;
 
 pub struct RsaToy {
-    pub closed_exponent: Option<BigUint>, //TODO Ну тут конечно же не pub, пока для тестов просто, плюс Option хрень конечно
-    pub open_exponent: BigUint,
-    pub n: BigUint, // TODO переименовать
+    private_exponent: BigUint,
+    pub public_exponent: BigUint,
+    pub modulus: BigUint,
 }
-
 
 // Можно еще сделать создание алгоритма с нужными параметрами, допустим длина секретов и т.д.
 impl Algorithm for RsaToy {
     fn encode(&self, message: &str) -> Vec<BigUint> {
-        // Значит так, по идее разделяем на подсообщения по < n символов или байт и прогоняем алгоритм
         let bytes = message.as_bytes();
-        let n = &self.n;
-        let e = &self.open_exponent;
-        // Надо поделить на чанки по < n байт
+        let n = &self.modulus;
+        let e = &self.public_exponent;
 
-        println!("{:?}", bytes);
+        let modulus_len = n.to_bytes_be().len();
+        let plain_block_len = modulus_len - 1;
 
-        let mut i: usize = 0;
+        let mut encoded: Vec<BigUint> = Vec::new();
+        let mut i = 0usize;
 
-        let mut encoded_bytes: Vec<BigUint> = Vec::new();
+        while i < bytes.len() {
+            let chunk_size = plain_block_len.min(bytes.len() - i);
+            let m = BigUint::from_bytes_be(&bytes[i..i + chunk_size]);
 
-        loop {
-            if i >= bytes.len() {
-                break;
-            }
+            debug_assert!(m < *n);
 
-            let two_bytes: BigUint;
+            let c = m.modpow(e, n);
+            encoded.push(c);
 
-            if i + 1 >= bytes.len() {
-                two_bytes = BigUint::from(bytes[i]);
-            } else {
-                two_bytes = BigUint::from(bytes[i]) * BigUint::from(256u16) + BigUint::from(bytes[i + 1]);
-            }
-
-            // TODO - сделать нормально под каждый n. Возможно добавить padding и рандомную часть как в нормальном RSA
-            if two_bytes < *n {
-                let encoded_value = two_bytes.modpow(e, n);
-                encoded_bytes.push(encoded_value);
-                i += 2;
-            } else {
-                let encoded_value = BigUint::from(bytes[i]).modpow(e, n);
-                encoded_bytes.push(encoded_value);
-                i += 1;
-            }
+            i += chunk_size;
         }
 
-        encoded_bytes // TODO - переводить в байты или что-то типа того. Надо посмотреть как настоящий RSA это делает
+        encoded // TODO - переводить в байты или что-то типа того. Надо посмотреть как настоящий RSA это делает
     }
 
     fn decode(&self, bytes: Vec<BigUint>) -> String {
         let mut decoded_values: Vec<u8> = Vec::new();
 
         for value in bytes {
-            let decoded_value = value.modpow(&self.closed_exponent.clone().unwrap(), &self.n);
+            let decoded_value = value.modpow(&self.private_exponent, &self.modulus);
 
-            if decoded_value < BigUint::from(256u16) {
-                decoded_values.push(decoded_value.to_u8().unwrap());
-            } else {
-                let b0 = (&decoded_value / BigUint::from(256u16)).to_u8().unwrap();
-                let b1 = (&decoded_value % BigUint::from(256u16)).to_u8().unwrap();
-                decoded_values.push(b0);
-                decoded_values.push(b1);
-            }
+            let block = decoded_value.to_bytes_be();
+            decoded_values.extend(block);
         }
+
+        println!("{:?}", decoded_values);
 
         String::from_utf8(decoded_values).unwrap()
     }
@@ -83,27 +63,27 @@ impl Algorithm for RsaToy {
 }
 
 impl RsaToy {
-    pub fn new(primes_length: usize) -> RsaToy {
-        let (d, e, n) = Self::generate_secret_key(primes_length);
+    pub fn new(primes_length: usize, _seed: BigUint) -> RsaToy {
+        let (d, e, n) = Self::generate_secret_key(primes_length, BigUint::zero());
         RsaToy {
-            closed_exponent: Some(d),
-            open_exponent: e,
-            n,
+            private_exponent: d,
+            public_exponent: e,
+            modulus: n,
         }
     }
 
-    fn generate_secret_key(primes_length: usize) -> (BigUint, BigUint, BigUint) {
+    fn generate_secret_key(primes_length: usize, _seed: BigUint) -> (BigUint, BigUint, BigUint) {
         // генерируем два простых числа p и q не равных; n = p * q.
-        let p_bits = num_primes::Generator::new_prime(primes_length).to_bytes_be();
-        let q_bits = num_primes::Generator::new_prime(primes_length).to_bytes_be();
-        let p = BigUint::from_bytes_be(&p_bits); // TODO: seed для воспроизводимости
-        let q = BigUint::from_bytes_be(&q_bits);// TODO: seed для воспроизводимости
+        let p_bits = num_primes::Generator::new_prime(primes_length).to_bytes_be(); // TODO - seed
+        let q_bits = num_primes::Generator::new_prime(primes_length).to_bytes_be(); // TODO - seed
+        let p = BigUint::from_bytes_be(&p_bits);
+        let q = BigUint::from_bytes_be(&q_bits);
 
         let phi = (p.clone() - 1u32) * (q.clone() - 1u32);
         let _n = p * q;
 
         let mut open_exponent: Option<BigUint> = None;
-        for candidate in [BigUint::from(3u8), BigUint::from(5u8), BigUint::from(17u8), BigUint::from(257u16)] {
+        for candidate in [BigUint::from(3u8), BigUint::from(5u8), BigUint::from(17u8), BigUint::from(257u16)] { // TODO - лучше сделать
             if phi.gcd(&candidate) == BigUint::from(1u8) {
                 open_exponent = Some(candidate);
                 break;
