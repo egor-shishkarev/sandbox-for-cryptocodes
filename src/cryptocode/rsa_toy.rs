@@ -2,18 +2,14 @@ use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
 use num_traits::{One, Zero, ToPrimitive};
 
+use super::cryptocode::Algorithm;
+
 pub struct RsaToy {
     pub closed_exponent: Option<BigUint>, //TODO Ну тут конечно же не pub, пока для тестов просто, плюс Option хрень конечно
     pub open_exponent: BigUint,
     pub n: BigUint, // TODO переименовать
 }
 
-pub trait Algorithm {
-    fn encode(&self, message: &str) -> Vec<BigUint>; // В идеале Bytes, но пока хз как написать правильно
-    fn decode(&self, bytes: Vec<BigUint>) -> String;
-    fn name() -> &'static str;
-    fn id() -> u8;
-}
 
 // Можно еще сделать создание алгоритма с нужными параметрами, допустим длина секретов и т.д.
 impl Algorithm for RsaToy {
@@ -35,7 +31,7 @@ impl Algorithm for RsaToy {
                 break;
             }
 
-            let mut two_bytes: BigUint = BigUint::zero(); // TODO нехорошо...
+            let two_bytes: BigUint;
 
             if i + 1 >= bytes.len() {
                 two_bytes = BigUint::from(bytes[i]);
@@ -43,6 +39,7 @@ impl Algorithm for RsaToy {
                 two_bytes = BigUint::from(bytes[i]) * BigUint::from(256u16) + BigUint::from(bytes[i + 1]);
             }
 
+            // TODO - сделать нормально под каждый n. Возможно добавить padding и рандомную часть как в нормальном RSA
             if two_bytes < *n {
                 let encoded_value = two_bytes.modpow(e, n);
                 encoded_bytes.push(encoded_value);
