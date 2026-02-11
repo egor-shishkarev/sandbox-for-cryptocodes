@@ -1,8 +1,9 @@
 use std::time::{Duration, Instant};
 
 use num_bigint::{BigInt, BigUint, ToBigInt};
-use num_traits::{ToPrimitive, Zero, One};
-use num_integer::{Integer, Roots};
+use num_traits::{ToPrimitive, Zero};
+
+use crate::utils::modinv;
 
 pub trait Attack {
     fn name() -> &'static str;
@@ -39,7 +40,7 @@ impl Attack for BruteForceFactorizationAttack {
             }
         };
         let phi = (p - 1) * (q - 1);
-        let d = Self::modinv(&public_exponent.to_bigint().unwrap(), &BigInt::from(phi)).unwrap();
+        let d = modinv(&public_exponent.to_bigint().unwrap(), &BigInt::from(phi)).unwrap();
 
         let decoded_message = Self::decode(d.to_biguint().unwrap(), modulus.clone(), ciphertext);
         self.iterations = BigUint::from(iterations);
@@ -80,29 +81,10 @@ impl BruteForceFactorizationAttack {
         }
 
         Some((first_prime, second_prime, first_prime - 3))
-    }
+    }  
 
-    // TODO - встречается в двух местах
-    fn modinv(a: &BigInt, m: &BigInt) -> Option<BigInt> {
-        let (g, x, _) = Self::egcd(a.clone(), m.clone());
-        if g != BigInt::one() {
-            return None;
-        }
-        Some((x % m + m) % m)
-    }
-
-    fn egcd(a: BigInt, b: BigInt) -> (BigInt, BigInt, BigInt) {
-        if b.is_zero() {
-            return (a, BigInt::one(), BigInt::zero());
-        }
-        let q = &a / &b;
-        let r = &a % &b;
-        let (g, x1, y1) = Self::egcd(b.clone(), r);
-        let x = y1.clone();
-        let y = x1 - q * y1;
-        (g, x, y)
-    }
-
+    //? По идее ничего страшного в том, что метод встречается в двух местах нет с точки зрения предметной области.
+    // Так как мы не можем использовать decode функцию из RsaToy, она нам недоступна
     fn decode(private_exponent: BigUint, modulus: BigUint, bytes: &Vec<Vec<u8>>) -> String {
         let mut decoded_values: Vec<u8> = Vec::new();
 
@@ -113,8 +95,6 @@ impl BruteForceFactorizationAttack {
             let block = decoded_value.to_bytes_be();
             decoded_values.extend(block);
         }
-
-        println!("{:?}", decoded_values);
 
         String::from_utf8(decoded_values).unwrap()
     }

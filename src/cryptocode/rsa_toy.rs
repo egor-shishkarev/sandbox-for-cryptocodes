@@ -1,6 +1,8 @@
 use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
-use num_traits::{One, Zero};
+use num_traits::{Zero};
+
+use crate::utils::modinv;
 
 use super::cryptocode::Algorithm;
 
@@ -49,8 +51,6 @@ impl Algorithm for RsaToy {
             decoded_values.extend(block);
         }
 
-        println!("{:?}", decoded_values);
-
         String::from_utf8(decoded_values).unwrap()
     }
 
@@ -67,7 +67,6 @@ impl RsaToy {
     pub fn new(primes_length: usize, _seed: BigUint) -> RsaToy {
         let (d, e, n) = Self::generate_secret_key(primes_length, BigUint::zero());
         let key_len = n.to_bytes_le().len() * 8;
-        println!("Длина ключа - {} бит", key_len);
         debug_assert!(key_len >= 16);
     
         RsaToy {
@@ -75,6 +74,11 @@ impl RsaToy {
             public_exponent: e,
             modulus: n,
         }
+    }
+
+    pub fn print_public_parameters(&self) {
+        println!("Длина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
+        println!("Публичные данные - ({}, {})", &self.public_exponent, &self.modulus);
     }
 
     fn generate_secret_key(primes_length: usize, _seed: BigUint) -> (BigUint, BigUint, BigUint) {
@@ -96,33 +100,12 @@ impl RsaToy {
         }
         let open_exponent = open_exponent.expect("No suitable open exponent found");
 
-        let d = Self::modinv(&BigInt::from(open_exponent.clone()), &BigInt::from(phi.clone()))
+        let d = modinv(&BigInt::from(open_exponent.clone()), &BigInt::from(phi.clone()))
             .and_then(|x| x.to_biguint())
             .expect("modinv failed");
 
         (d, open_exponent, _n)
         
-    }
-
-    fn egcd(a: BigInt, b: BigInt) -> (BigInt, BigInt, BigInt) {
-        if b.is_zero() {
-            return (a, BigInt::one(), BigInt::zero());
-        }
-        let q = &a / &b;
-        let r = &a % &b;
-        let (g, x1, y1) = Self::egcd(b.clone(), r);
-        let x = y1.clone();
-        let y = x1 - q * y1;
-        (g, x, y)
-    }
-
-    // TODO - встречается в двух местах
-    fn modinv(a: &BigInt, m: &BigInt) -> Option<BigInt> {
-        let (g, x, _) = Self::egcd(a.clone(), m.clone());
-        if g != BigInt::one() {
-            return None;
-        }
-        Some((x % m + m) % m)
     }
 
     fn convert_encoded_to_bytes(encoded: Vec<BigUint>) -> Vec<Vec<u8>> {

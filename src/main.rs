@@ -1,6 +1,4 @@
-use std::usize::MAX;
-
-use crate::{attack::{Attack, BruteForceFactorizationAttack}, utils::{read_line, welcome_print}, cryptocode::{Algorithm, RsaToy}, utils::get_utf8_representation};
+use crate::{attack::{Attack, BruteForceFactorizationAttack}, cryptocode::{Algorithm, RsaToy}, utils::{get_utf8_representation, read_line, read_usize, welcome_print}};
 use num_bigint::{self, BigUint};
 use num_traits::Zero;
 mod attack;
@@ -17,53 +15,19 @@ fn main() {
 
     welcome_print(&allowed_algorithms);
 
+    let algorithms_len_handler = |v: usize| { if v <= allowed_algorithms.len() { Some(v) } else { None } };
+    let primes_len_handler = |v: usize| { if v >= 8 { Some(v)} else { None } };
+
     loop {
-        let mut choice: usize = MAX;
-        loop {
-            let input = read_line(Some("Введите номер интересующего алгоритма для проведения атак:"));
-            choice = match input.trim().parse() {
-                Ok(v) => {
-                    if v > allowed_algorithms.len() {
-                        println!("Введено некорректное значение, повторите ввод");
-                        continue;
-                    }
-                    v
-                },
-                Err(_) => {
-                    println!("Введено некорректное значение, повторите ввод");
-                    continue;
-                }
-            };
-            break;
-        }
-        
+        let choice: usize = read_usize("Введите номер интересующего алгоритма для проведения атак:", algorithms_len_handler);
         if choice == 0 {
             break;
         }
 
-        let mut primes_length: usize = MAX;
-            
-        // TODO - переиспользовать
-        loop {
-            let input = read_line(Some("Введите желаемую длину простых чисел множителей не менее 8 (в битах)"));
-            primes_length = match input.trim().parse() {
-                Ok(v) => {
-                    if v < 8 {
-                        println!("Введено слишком маленькое значение, попробуйте ввести значение больше 8");
-                        continue;
-                    }
-                    v
-                },
-                Err(_) => {
-                    println!("Введено некорректное значение, повторите ввод");
-                    continue;
-                }
-            };
-            break;
-        }
-
+        let primes_length: usize = read_usize("Введите желаемую длину простых чисел множителей не менее 8 (в битах)", primes_len_handler);
         
-        let rsa = cryptocode::RsaToy::new(primes_length, BigUint::zero()); 
+        let rsa = cryptocode::RsaToy::new(primes_length, BigUint::zero());
+        rsa.print_public_parameters(); 
         let message = read_line(Some("Введите сообщение, которое хотите зашифровать => "));
         let encoded_values = rsa.encode(&message);
         println!("Закодированное сообщение в виде HEX - {}", get_utf8_representation(encoded_values.clone()));
