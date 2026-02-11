@@ -1,4 +1,3 @@
-use num_bigint::BigUint;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -7,7 +6,7 @@ pub struct AttackReport {
     pub duration: Duration,
     pub iterations: u64,
     pub result: AttackResult,
-    pub seed: BigUint,
+    pub seed: u64,
 }
 
 #[derive(Debug)]

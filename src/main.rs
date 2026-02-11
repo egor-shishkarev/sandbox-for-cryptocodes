@@ -1,6 +1,8 @@
-use crate::{attack::{Attack, BruteForceFactorizationAttack}, cryptocode::{Algorithm, RsaToy}, utils::{get_utf8_representation, read_line, read_usize, welcome_print}};
-use num_bigint::{self, BigUint};
-use num_traits::Zero;
+use crate::{
+    attack::{Attack, BruteForceFactorizationAttack},
+    cryptocode::{Algorithm, RsaToy},
+    utils::{get_utf8_representation, read_line, read_usize, welcome_print, generate_seed_u64}
+};
 mod attack;
 mod attack_report;
 mod cryptocode;
@@ -22,6 +24,7 @@ fn main() {
     let primes_len_handler = |v: usize| { if v >= 8 { Some(v)} else { None } };
 
     loop {
+        let seed = generate_seed_u64();
         let choice: usize = read_usize("Введите номер интересующего алгоритма для проведения атак:", algorithms_len_handler);
         if choice == 0 {
             break;
@@ -29,7 +32,7 @@ fn main() {
 
         let primes_length: usize = read_usize("Введите желаемую длину простых чисел множителей не менее 8 (в битах)", primes_len_handler);
         
-        let rsa = cryptocode::RsaToy::new(primes_length, BigUint::zero());
+        let rsa = RsaToy::new(primes_length, seed);
         rsa.print_public_parameters(); 
         let message = read_line(Some("Введите сообщение, которое хотите зашифровать => "));
         let encoded_values = rsa.encode(&message);
@@ -39,7 +42,7 @@ fn main() {
 
         println!("Производим атаку на открытый ключ");
         let mut brute_force_factorization_attack = BruteForceFactorizationAttack::new();
-        let result = brute_force_factorization_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values);
+        let result = brute_force_factorization_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values, seed);
         println!("Результат атаки - {:?}", &result);
     }
 

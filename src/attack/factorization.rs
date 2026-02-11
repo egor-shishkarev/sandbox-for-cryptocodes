@@ -5,7 +5,7 @@ use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv};
 
 pub trait Attack {
     fn name(&self) -> &'static str;
-    fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>) -> AttackReport;
+    fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport; // TODO - Прокидывать сюда seed - бред. Нужно делать отдельный модуль с экспериментами, фабриками и т.д.
     fn iterations_explain(&self) -> &'static str;
 }
 
@@ -22,7 +22,7 @@ impl Attack for BruteForceFactorizationAttack {
 
     // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
     // Короче обеспечить обособленность друг от друга
-    fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>) -> AttackReport {
+    fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
         // Нужно просто :) факторизовать modulus, то есть разобрать на два множителя.
         let start = Instant::now();
         let (p, q, iterations) = match Self::factorize(modulus.clone()) {
@@ -33,7 +33,7 @@ impl Attack for BruteForceFactorizationAttack {
                     duration: Instant::now().elapsed(), // TODO - не уверен, что тут 0 будет, а надо бы 0
                     iterations: 0,
                     result: AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") },
-                    seed: BigUint::zero(),
+                    seed,
                 }
             }
         };
@@ -46,7 +46,7 @@ impl Attack for BruteForceFactorizationAttack {
             duration: start.elapsed(),
             iterations: iterations as u64,
             result: AttackResult::Success { message: decoded_message },
-            seed: BigUint::zero(),
+            seed,
         }
     }
 }

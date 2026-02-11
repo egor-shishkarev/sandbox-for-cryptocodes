@@ -1,8 +1,6 @@
 use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
-use num_traits::{Zero};
-
-use crate::utils::modinv;
+use crate::utils::{modinv, generate_two_distinct_primes};
 
 use super::cryptocode::Algorithm;
 
@@ -18,7 +16,7 @@ impl Algorithm for RsaToy {
         let bytes = message.as_bytes();
         let n = &self.modulus;
         let e = &self.public_exponent;
-        
+
         let modulus_len = n.to_bytes_be().len();
         let plain_block_len = modulus_len - 1;
 
@@ -65,8 +63,8 @@ impl Algorithm for RsaToy {
 }
 
 impl RsaToy {
-    pub fn new(primes_length: usize, _seed: BigUint) -> RsaToy {
-        let (d, e, n) = Self::generate_secret_key(primes_length, BigUint::zero());
+    pub fn new(primes_length: usize, seed: u64) -> RsaToy {
+        let (d, e, n) = Self::generate_secret_key(primes_length, seed);
         let key_len = n.to_bytes_le().len() * 8;
         debug_assert!(key_len >= 16);
     
@@ -77,12 +75,9 @@ impl RsaToy {
         }
     }
 
-    fn generate_secret_key(primes_length: usize, _seed: BigUint) -> (BigUint, BigUint, BigUint) {
+    fn generate_secret_key(primes_length: usize, seed: u64) -> (BigUint, BigUint, BigUint) {
         // генерируем два простых числа p и q не равных; n = p * q.
-        let p_bits = num_primes::Generator::new_prime(primes_length).to_bytes_be(); // TODO - seed
-        let q_bits = num_primes::Generator::new_prime(primes_length).to_bytes_be(); // TODO - seed
-        let p = BigUint::from_bytes_be(&p_bits);
-        let q = BigUint::from_bytes_be(&q_bits);
+        let (p, q) = generate_two_distinct_primes(seed, primes_length);
 
         let phi = (p.clone() - 1u32) * (q.clone() - 1u32);
         let _n = p * q;
