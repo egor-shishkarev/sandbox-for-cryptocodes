@@ -4,7 +4,7 @@ use num_traits::{ToPrimitive, Zero};
 use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv};
 
 pub trait Attack {
-    fn name(&self) -> &'static str;
+    fn name(&self) -> String;
     fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport; // TODO - Прокидывать сюда seed - бред. Нужно делать отдельный модуль с экспериментами, фабриками и т.д.
     fn iterations_explain(&self) -> &'static str;
 }
@@ -12,8 +12,8 @@ pub trait Attack {
 pub struct BruteForceFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
 
 impl Attack for BruteForceFactorizationAttack {
-    fn name(&self) -> &'static str {
-        "Атака факторизацией (brute force)"
+    fn name(&self) -> String {
+        "Атака факторизацией (brute force)".to_string()
     }
 
     fn iterations_explain(&self) -> &'static str {
@@ -28,12 +28,17 @@ impl Attack for BruteForceFactorizationAttack {
         let (p, q, iterations) = match Self::factorize(modulus.clone()) {
             Some(v) => v,
             None => {
+                // TODO - дублирующееся создание отчета
                 return AttackReport {
                     attack_name: Self::name(&self),
                     duration: Instant::now().elapsed(), // TODO - не уверен, что тут 0 будет, а надо бы 0
                     iterations: 0,
                     result: AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") },
                     seed,
+                    public_parameters: serde_json::json!({
+                        "public_exponent": public_exponent.to_string(),
+                        "modulus": modulus.to_string(),
+                    }),
                 }
             }
         };
@@ -47,6 +52,10 @@ impl Attack for BruteForceFactorizationAttack {
             iterations: iterations as u64,
             result: AttackResult::Success { message: decoded_message },
             seed,
+            public_parameters: serde_json::json!({
+                "public_exponent": public_exponent.to_string(),
+                "modulus": modulus.to_string(),
+            }),
         }
     }
 }

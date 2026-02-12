@@ -1,13 +1,12 @@
 use crate::{
     attack::{Attack, BruteForceFactorizationAttack},
     cryptocode::{Algorithm, RsaToy},
-    utils::{get_utf8_representation, read_line, read_usize, welcome_print, generate_seed_u64}
+    utils::{generate_seed_u64, get_utf8_representation, read_line, read_usize, save_report, welcome_print}
 };
 mod attack;
 mod attack_report;
 mod cryptocode;
 mod utils;
-
 
 // TODO - переименовать файлы в папках, лучше чтобы они не совпадали с названиями папок
 fn main() {
@@ -44,7 +43,11 @@ fn main() {
         let mut brute_force_factorization_attack = BruteForceFactorizationAttack::new();
         let result = brute_force_factorization_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values, seed);
         println!("Результат атаки - {:?}", &result);
+        match save_report(&result, format!("{}.json", RsaToy::name())) {
+            Ok(v) => v,
+            Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
+        };
     }
 
-    println!("Завершение программы");
+    println!("Выход из песочницы");
 }
