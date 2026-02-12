@@ -23,10 +23,15 @@ fn main() {
     let primes_len_handler = |v: usize| { if v >= 8 { Some(v)} else { None } };
 
     loop {
-        let seed = generate_seed_u64();
+        let mut seed = generate_seed_u64();
         let choice: usize = read_usize("Введите номер интересующего алгоритма для проведения атак:", algorithms_len_handler);
         if choice == 0 {
             break;
+        }
+
+        let seeded_algorithm_choice = read_line(Some("Хотите ли Вы использовать определенный seed? (Y/N) => "));
+        if seeded_algorithm_choice == "Y".to_string() {
+            seed = read_usize("Введите seed", |v| Some(v)) as u64;
         }
 
         let primes_length: usize = read_usize("Введите желаемую длину простых чисел множителей не менее 8 (в битах)", primes_len_handler);

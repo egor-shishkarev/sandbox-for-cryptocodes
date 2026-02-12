@@ -420,3 +420,6 @@ FodyWeavers.xsd
 
 # For Rust
 target
+
+# Reports files 
+src/reports
