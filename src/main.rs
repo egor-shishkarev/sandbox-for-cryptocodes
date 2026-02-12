@@ -1,7 +1,7 @@
 use crate::{
     attack::{BruteForceFactorizationAttack, SmallExponentAttack, AttackFactory},
     cryptocode::{Algorithm, RsaToy},
-    utils::{generate_seed_u64, read_line, read_usize, save_report, welcome_print, print_algorithms}
+    utils::{generate_seed_u64, read_line, read_usize, save_report, welcome_print, print_algorithms, clear_console}
 };
 mod attack;
 mod attack_report;
@@ -32,7 +32,7 @@ fn main() {
 
         let seeded_algorithm_choice = read_line(Some("\nХотите ли Вы использовать определенный seed? (Y/N)"));
         if seeded_algorithm_choice == "Y".to_string() {
-            seed = read_usize("Введите seed", |v| Some(v)) as u64;
+            seed = read_usize("\nВведите seed", |v| Some(v)) as u64;
         }
 
         let primes_length: usize = read_usize("\nВведите желаемую длину простых чисел множителей не менее 8 (в битах)", primes_len_handler);
@@ -70,6 +70,8 @@ fn main() {
                 Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
             };
         }
+
+        clear_console();
     }
 
     println!("Выход из песочницы");

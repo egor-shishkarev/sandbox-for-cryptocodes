@@ -1,4 +1,10 @@
 use std::io::Write;
+use crossterm::{
+    execute,
+    terminal::{Clear, ClearType},
+    cursor::MoveTo,
+};
+use std::io::stdout;
 
 pub fn welcome_print() {
     println!("Добро пожаловать в песочницу для атак на криптокоды!");
@@ -8,7 +14,7 @@ pub fn welcome_print() {
 
 pub fn print_algorithms(allowed_algorithms: &Vec<String>) {
     // TODO - мб перенести сюда всю логику по получению всех алгоритмов?
-    println!("\nДоступные алгоритмы для кодирования:");
+    println!("Доступные алгоритмы для кодирования:");
     let mut index: u8 = 1;
     for algorithm in allowed_algorithms {
         println!("{index}) {algorithm}");
@@ -55,6 +61,15 @@ where
 
         return result;
     }
+}
+
+pub fn clear_console() {
+    execute!(
+        stdout(),
+        Clear(ClearType::All),
+        Clear(ClearType::Purge),
+        MoveTo(0, 0)
+    ).unwrap();
 }
 
 // pub fn get_utf8_representation(bytes_vector: Vec<Vec<u8>>) -> String {
