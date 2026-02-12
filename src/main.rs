@@ -1,7 +1,7 @@
 use crate::{
-    attack::{BruteForceFactorizationAttack, SmallExponentAttack, AttackFactory},
+    attack::{AttackFactory, BruteForceFactorizationAttack, SmallExponentAttack, rsa::FermatFactorizationAttack},
     cryptocode::{Algorithm, RsaToy},
-    utils::{generate_seed_u64, read_line, read_usize, save_report, welcome_print, print_algorithms, clear_console}
+    utils::{clear_console, generate_seed_u64, print_algorithms, read_line, read_usize, save_report, welcome_print}
 };
 mod attack;
 mod attack_report;
@@ -30,6 +30,7 @@ fn main() {
             break;
         }
 
+        // TODO - можно просто просить ввести сид, и если в воде не число, то брать рандомный сид
         let seeded_algorithm_choice = read_line(Some("\nХотите ли Вы использовать определенный seed? (Y/N)"));
         if seeded_algorithm_choice == "Y".to_string() {
             seed = read_usize("\nВведите seed", |v| Some(v)) as u64;
@@ -50,7 +51,7 @@ fn main() {
         // но в то же время пока не понимаю как грамотно связывать атаки и алгоритмы
         loop {
             println!("\nВыберите атаку (или введите 0 для выхода к алгоритмам)");
-            let allowed_attacks: Vec<AttackFactory> = vec![|| Box::new(BruteForceFactorizationAttack::new()), || Box::new(SmallExponentAttack::new())];
+            let allowed_attacks: Vec<AttackFactory> = vec![|| Box::new(BruteForceFactorizationAttack::new()), || Box::new(SmallExponentAttack::new()), || Box::new(FermatFactorizationAttack::new())];
             for (index, factory) in allowed_attacks.iter().enumerate() {
                 let attack = factory();
                 println!("{}) {}", index + 1, attack.name());
@@ -63,6 +64,8 @@ fn main() {
             let chosen_attack = allowed_attacks[choice - 1]();
 
             println!("\nПроизводим атаку...\n");
+            // TODO - По хорошему нужно добавить возможность выходить из атаки без выхода из программы
+            // TODO - То есть нужно что-то типа асинхронного выполнения атаки делать
             let result = chosen_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values, seed);
             println!("{}", &result);
             match save_report(&result, format!("{}.json", RsaToy::name())) {

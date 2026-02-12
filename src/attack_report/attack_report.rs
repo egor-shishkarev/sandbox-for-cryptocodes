@@ -42,7 +42,7 @@ impl fmt::Display for AttackResult {
                 write!(f, "Success\nMessage:       {}", message)
             }
             AttackResult::Failed { reason } => {
-                write!(f, "Failure\nReason:        {}", reason)
+                write!(f, "Failed\nReason:        {}", reason)
             }
         }
     }
