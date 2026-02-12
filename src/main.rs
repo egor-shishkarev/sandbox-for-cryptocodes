@@ -1,7 +1,7 @@
 use crate::{
-    attack::{Attack, BruteForceFactorizationAttack},
+    attack::{AttackFactory, BruteForceFactorizationAttack, SmallExponentAttack, rsa::FermatFactorizationAttack},
     cryptocode::{Algorithm, RsaToy},
-    utils::{generate_seed_u64, read_line, read_usize, save_report, welcome_print}
+    utils::{clear_console, generate_seed_u64, print_algorithms, read_line, read_usize, save_report, welcome_print}
 };
 mod attack;
 mod attack_report;
@@ -17,42 +17,64 @@ fn main() {
     .map(String::from)
     .collect();
 
-    welcome_print(&allowed_algorithms);
+    welcome_print();
 
     let algorithms_len_handler = |v: usize| { if v <= allowed_algorithms.len() { Some(v) } else { None } };
     let primes_len_handler = |v: usize| { if v >= 8 { Some(v)} else { None } };
 
     loop {
+        print_algorithms(&allowed_algorithms);
         let mut seed = generate_seed_u64();
-        let choice: usize = read_usize("Введите номер интересующего алгоритма для проведения атак:", algorithms_len_handler);
+        let choice: usize = read_usize("\nВведите номер интересующего алгоритма для проведения атак:", algorithms_len_handler);
         if choice == 0 {
             break;
         }
 
-        let seeded_algorithm_choice = read_line(Some("Хотите ли Вы использовать определенный seed? (Y/N) => "));
+        // TODO - можно просто просить ввести сид, и если в воде не число, то брать рандомный сид
+        let seeded_algorithm_choice = read_line(Some("\nХотите ли Вы использовать определенный seed? (Y/N)"));
         if seeded_algorithm_choice == "Y".to_string() {
-            seed = read_usize("Введите seed", |v| Some(v)) as u64;
+            seed = read_usize("\nВведите seed", |v| Some(v)) as u64;
         }
 
-        let primes_length: usize = read_usize("Введите желаемую длину простых чисел множителей не менее 8 (в битах)", primes_len_handler);
+        let primes_length: usize = read_usize("\nВведите желаемую длину простых чисел множителей не менее 8 (в битах)", primes_len_handler);
         
         let rsa = RsaToy::new(primes_length, seed);
         rsa.print_public_parameters(); 
-        let message = read_line(Some("Введите сообщение, которое хотите зашифровать => "));
+        let message = read_line(Some("Введите сообщение, которое хотите зашифровать"));
         let encoded_values = rsa.encode(&message);
         // Пока не будем это показывать, потому что я не совсем понимаю как это лучше всего делать и зачем
         //println!("Закодированное сообщение в виде HEX - {}", get_utf8_representation(encoded_values.clone()));
 
         debug_assert!(rsa.decode(encoded_values.clone()) == message);
 
-        println!("\nПроизводим атаку на открытый ключ...\n");
-        let mut brute_force_factorization_attack = BruteForceFactorizationAttack::new();
-        let result = brute_force_factorization_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values, seed);
-        println!("{}", &result);
-        match save_report(&result, format!("{}.json", RsaToy::name())) {
-            Ok(v) => v,
-            Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
-        };
+        // Суть - ересь. Не хочется это выносить в console_helper, потому что хочется простого добавления алгоритмов,
+        // но в то же время пока не понимаю как грамотно связывать атаки и алгоритмы
+        loop {
+            println!("\nВыберите атаку (или введите 0 для выхода к алгоритмам)");
+            let allowed_attacks: Vec<AttackFactory> = vec![|| Box::new(BruteForceFactorizationAttack::new()), || Box::new(SmallExponentAttack::new()), || Box::new(FermatFactorizationAttack::new())];
+            for (index, factory) in allowed_attacks.iter().enumerate() {
+                let attack = factory();
+                println!("{}) {}", index + 1, attack.name());
+            }
+            let attacks_len_handler = |v: usize| { if v <= allowed_attacks.len() { Some(v) } else { None } };
+            let choice = read_usize("", attacks_len_handler);
+            if choice == 0 {
+                break;
+            }
+            let chosen_attack = allowed_attacks[choice - 1]();
+
+            println!("\nПроизводим атаку...\n");
+            // TODO - По хорошему нужно добавить возможность выходить из атаки без выхода из программы
+            // TODO - То есть нужно что-то типа асинхронного выполнения атаки делать
+            let result = chosen_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values, seed);
+            println!("{}", &result);
+            match save_report(&result, format!("{}.json", RsaToy::name())) {
+                Ok(v) => v,
+                Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
+            };
+        }
+
+        clear_console();
     }
 
     println!("Выход из песочницы");

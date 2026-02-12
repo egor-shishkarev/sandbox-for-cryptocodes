@@ -84,6 +84,7 @@ impl RsaToy {
         let _n = p * q;
 
         let mut open_exponent: Option<BigUint> = None;
+        // TODO - насчет этого хз. Сейчас тут нельзя управлять этим, но ка будто для песочницы норм же?
         for candidate in [BigUint::from(3u8), BigUint::from(5u8), BigUint::from(17u8), BigUint::from(257u16)] { // TODO - лучше сделать
             if phi.gcd(&candidate) == BigUint::from(1u8) {
                 open_exponent = Some(candidate);

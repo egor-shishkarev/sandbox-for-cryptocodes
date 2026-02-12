@@ -1,3 +1,5 @@
-mod factorization;
+mod attack_trait;
+pub mod rsa;
 
-pub use factorization::{Attack, BruteForceFactorizationAttack};
+pub use attack_trait::{AttackFactory};
+pub use rsa::{BruteForceFactorizationAttack, SmallExponentAttack};
