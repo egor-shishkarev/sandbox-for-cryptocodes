@@ -6,6 +6,7 @@ use std::fmt;
 #[derive(Debug)]
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AttackReport {
+    // TODO Мне кажется было бы хорошо сюда добавить название атакованного алгоритма, потому что по истории не понятно будет
     pub attack_name: String,
     pub duration: Duration,
     pub iterations: u64,
@@ -41,7 +42,7 @@ impl fmt::Display for AttackResult {
                 write!(f, "Success\nMessage:       {}", message)
             }
             AttackResult::Failed { reason } => {
-                write!(f, "Failure\nReason:       {}", reason)
+                write!(f, "Failure\nReason:        {}", reason)
             }
         }
     }

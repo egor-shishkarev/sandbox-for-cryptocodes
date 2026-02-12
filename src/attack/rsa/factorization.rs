@@ -1,15 +1,7 @@
 use std::{time::Instant};
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{ToPrimitive, Zero};
-use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv};
-
-pub trait Attack {
-    fn name(&self) -> String;
-    fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport; // TODO - Прокидывать сюда seed - бред. Нужно делать отдельный модуль с экспериментами, фабриками и т.д.
-    // TODO - потом добавить куда-нибудь, потому что для разных алгоритмов итерация может включать в себя несколько действий.
-    // fn iterations_explain(&self) -> &'static str;
-}
-
+use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv, attack::attack_trait::Attack};
 pub struct BruteForceFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
 
 impl Attack for BruteForceFactorizationAttack {
@@ -23,41 +15,34 @@ impl Attack for BruteForceFactorizationAttack {
 
     // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
     // Короче обеспечить обособленность друг от друга
-    fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
+    fn run(&self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
         let start = Instant::now();
+
+        let make_report = |iterations: u64, result: AttackResult| {
+            AttackReport {
+                attack_name: Self::name(&self),
+                duration: start.elapsed(),
+                iterations,
+                result,
+                seed,
+                public_parameters: serde_json::json!({
+                    "public_exponent": public_exponent.to_string(),
+                    "modulus": modulus.to_string(),
+                })
+            }
+        };
+
         let (p, q, iterations) = match Self::factorize(modulus.clone()) {
             Some(v) => v,
             None => {
-                // TODO - дублирующееся создание отчета
-                return AttackReport {
-                    attack_name: Self::name(&self),
-                    duration: Instant::now().elapsed(), // TODO - не уверен, что тут 0 будет, а надо бы 0
-                    iterations: 0,
-                    result: AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") },
-                    seed,
-                    // TODO С одной стороны длина ключей не является публичной частью, с другой стороны без них воспроизводимости не будет...
-                    public_parameters: serde_json::json!({
-                        "public_exponent": public_exponent.to_string(),
-                        "modulus": modulus.to_string(),
-                    }),
-                }
+                return make_report(0, AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") });
             }
         };
         let phi = (p - 1) * (q - 1);
         let d = modinv(&public_exponent.to_bigint().unwrap(), &BigInt::from(phi)).unwrap();
 
         let decoded_message = Self::decode(d.to_biguint().unwrap(), modulus.clone(), ciphertext);
-        AttackReport {
-            attack_name: Self::name(&self),
-            duration: start.elapsed(),
-            iterations: iterations as u64,
-            result: AttackResult::Success { message: decoded_message },
-            seed,
-            public_parameters: serde_json::json!({
-                "public_exponent": public_exponent.to_string(),
-                "modulus": modulus.to_string(),
-            }),
-        }
+        make_report(iterations as u64, AttackResult::Success { message: decoded_message })
     }
 }
 
