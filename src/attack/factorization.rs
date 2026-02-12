@@ -1,4 +1,4 @@
-use std::{iter, time::Instant};
+use std::{time::Instant};
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{ToPrimitive, Zero};
 use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv};
@@ -6,7 +6,8 @@ use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv};
 pub trait Attack {
     fn name(&self) -> String;
     fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport; // TODO - Прокидывать сюда seed - бред. Нужно делать отдельный модуль с экспериментами, фабриками и т.д.
-    fn iterations_explain(&self) -> &'static str;
+    // TODO - потом добавить куда-нибудь, потому что для разных алгоритмов итерация может включать в себя несколько действий.
+    // fn iterations_explain(&self) -> &'static str;
 }
 
 pub struct BruteForceFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
@@ -16,14 +17,13 @@ impl Attack for BruteForceFactorizationAttack {
         "Атака факторизацией (brute force)".to_string()
     }
 
-    fn iterations_explain(&self) -> &'static str {
-        "Количество повторов цикла в которых мы раскладываем modulus на множители"
-    }
+    // fn iterations_explain(&self) -> &'static str {
+    //     "Количество повторов цикла в которых мы раскладываем modulus на множители"
+    // }
 
     // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
     // Короче обеспечить обособленность друг от друга
     fn run(&mut self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
-        // Нужно просто :) факторизовать modulus, то есть разобрать на два множителя.
         let start = Instant::now();
         let (p, q, iterations) = match Self::factorize(modulus.clone()) {
             Some(v) => v,
@@ -35,6 +35,7 @@ impl Attack for BruteForceFactorizationAttack {
                     iterations: 0,
                     result: AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") },
                     seed,
+                    // TODO С одной стороны длина ключей не является публичной частью, с другой стороны без них воспроизводимости не будет...
                     public_parameters: serde_json::json!({
                         "public_exponent": public_exponent.to_string(),
                         "modulus": modulus.to_string(),

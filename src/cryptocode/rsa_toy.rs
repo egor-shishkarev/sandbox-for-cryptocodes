@@ -12,6 +12,7 @@ pub struct RsaToy {
 
 // Можно еще сделать создание алгоритма с нужными параметрами, допустим длина секретов и т.д.
 impl Algorithm for RsaToy {
+    // TODO - возвращаемое значение сделать просто Vec<u8> и переделать алгоритм под вычисление количества байт на число
     fn encode(&self, message: &str) -> Vec<Vec<u8>> {
         let bytes = message.as_bytes();
         let n = &self.modulus;
@@ -57,8 +58,8 @@ impl Algorithm for RsaToy {
     }
 
     fn print_public_parameters(&self) {
-        println!("Длина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
-        println!("Публичные данные - ({}, {})", &self.public_exponent, &self.modulus);
+        println!("\nДлина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
+        println!("Публичные данные - ({}, {})\n", &self.public_exponent, &self.modulus);
     }
 }
 

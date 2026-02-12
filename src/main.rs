@@ -1,7 +1,7 @@
 use crate::{
     attack::{Attack, BruteForceFactorizationAttack},
     cryptocode::{Algorithm, RsaToy},
-    utils::{generate_seed_u64, get_utf8_representation, read_line, read_usize, save_report, welcome_print}
+    utils::{generate_seed_u64, read_line, read_usize, save_report, welcome_print}
 };
 mod attack;
 mod attack_report;
@@ -40,14 +40,15 @@ fn main() {
         rsa.print_public_parameters(); 
         let message = read_line(Some("Введите сообщение, которое хотите зашифровать => "));
         let encoded_values = rsa.encode(&message);
-        println!("Закодированное сообщение в виде HEX - {}", get_utf8_representation(encoded_values.clone()));
+        // Пока не будем это показывать, потому что я не совсем понимаю как это лучше всего делать и зачем
+        //println!("Закодированное сообщение в виде HEX - {}", get_utf8_representation(encoded_values.clone()));
 
         debug_assert!(rsa.decode(encoded_values.clone()) == message);
 
-        println!("Производим атаку на открытый ключ");
+        println!("\nПроизводим атаку на открытый ключ...\n");
         let mut brute_force_factorization_attack = BruteForceFactorizationAttack::new();
         let result = brute_force_factorization_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values, seed);
-        println!("Результат атаки - {:?}", &result);
+        println!("{}", &result);
         match save_report(&result, format!("{}.json", RsaToy::name())) {
             Ok(v) => v,
             Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
