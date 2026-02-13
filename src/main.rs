@@ -2,22 +2,20 @@ use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, thread, time::Duration};
 use crossbeam_channel::unbounded;
 
 use crate::{
-    attack::{
+    algorithms::{EncryptionAlgorithm, KeyExchangeAlgorithm, DiffieHellmanToy, RsaToy}, attack::{
         AttackFactory, BruteForceFactorizationAttack, SmallExponentAttack, rsa::FermatFactorizationAttack
-    },
-    attack_report::AttackReport,
-    cryptocode::{Algorithm, RsaToy},
-    utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, save_report, spawn_input_thread, welcome_print, read_usize_from_ui, read_from_ui}
+    }, attack_report::AttackReport, utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, read_from_ui, read_usize_from_ui, save_report, spawn_input_thread, welcome_print}
 };
 mod attack;
 mod attack_report;
-mod cryptocode;
+mod algorithms;
 mod utils;
 
 // TODO - переименовать файлы в папках, лучше чтобы они не совпадали с названиями папок
 fn main() {
     let allowed_algorithms: Vec<String> = [
         RsaToy::name(),
+        DiffieHellmanToy::name(),
     ]
     .into_iter()
     .map(String::from)

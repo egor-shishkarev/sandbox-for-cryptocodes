@@ -1,4 +1,4 @@
-pub trait Algorithm {
+pub trait EncryptionAlgorithm {
     fn encode(&self, message: &str) -> Vec<Vec<u8>>; // В идеале Bytes, но пока хз как написать правильно
     fn decode(&self, bytes: Vec<Vec<u8>>) -> String;
     fn name() -> &'static str;
@@ -7,3 +7,12 @@ pub trait Algorithm {
     // Однако как сделать так, чтобы можно было получать параметры разных типов?
     // Даже с генериками это звучит пока не понятно
 }
+
+pub trait KeyExchangeAlgorithm {
+    fn establish_shared_secret(&self);
+    fn name() -> &'static str;
+    fn print_public_parameters(&self);
+}
+
+// trait CompressionAlgorithm
+// trait ErrorCorrectionCode

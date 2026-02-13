@@ -2,7 +2,7 @@ use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
 use crate::utils::{modinv, generate_two_distinct_primes};
 
-use super::cryptocode::Algorithm;
+use super::algorithms_traits::EncryptionAlgorithm;
 
 pub struct RsaToy {
     private_exponent: BigUint,
@@ -10,8 +10,7 @@ pub struct RsaToy {
     pub modulus: BigUint,
 }
 
-// Можно еще сделать создание алгоритма с нужными параметрами, допустим длина секретов и т.д.
-impl Algorithm for RsaToy {
+impl EncryptionAlgorithm for RsaToy {
     // TODO - возвращаемое значение сделать просто Vec<u8> и переделать алгоритм под вычисление количества байт на число
     fn encode(&self, message: &str) -> Vec<Vec<u8>> {
         let bytes = message.as_bytes();

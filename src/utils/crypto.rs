@@ -3,7 +3,7 @@ use num_traits::{Zero, One};
 use rand::SeedableRng;
 use rand_core::{OsRng, RngCore};
 use rand_chacha::ChaCha20Rng;
-use num_prime::{RandPrime, PrimalityTestConfig};
+use num_prime::{RandPrime, PrimalityTestConfig, nt_funcs::is_prime};
 
 fn egcd(a: BigInt, b: BigInt) -> (BigInt, BigInt, BigInt) {
     if b.is_zero() {
@@ -33,6 +33,44 @@ pub fn rng_from_seed(seed: u64) -> ChaCha20Rng {
     let mut s = [0u8; 32];
     s[..8].copy_from_slice(&seed.to_le_bytes());
     ChaCha20Rng::from_seed(s)
+}
+
+pub fn generate_prime(rng: &mut ChaCha20Rng, bits: usize) -> BigUint {
+    let config = Some(PrimalityTestConfig::bpsw());
+    rng.gen_prime_exact(bits, config)
+}
+
+/**
+ * Безопасное простое число p, такое, что p = 2q + 1, и при этом q тоже простое
+ */
+ pub fn generate_safe_prime(rng: &mut ChaCha20Rng, bits_p: usize) -> (BigUint, BigUint) {
+    assert!(bits_p >= 3);
+
+    let config = Some(PrimalityTestConfig::bpsw());
+    let bits_q = bits_p - 1;
+
+    loop {
+        let q: BigUint = rng.gen_prime_exact(bits_q, config);
+        let p: BigUint = (&q << 1) + BigUint::one();
+        if p.bits() as usize != bits_p {
+            continue;
+        }
+        if is_prime::<BigUint>(&p, config).probably() {
+            return (p, q);
+        }
+    }
+}
+
+pub fn random_in_range(rng: &mut ChaCha20Rng, upper: &BigUint) -> BigUint {
+    use rand::RngCore;
+    let mut buf = vec![0u8; (upper.bits() as usize + 7) / 8];
+    loop {
+        rng.fill_bytes(&mut buf);
+        let x = BigUint::from_bytes_be(&buf) % upper;
+        if !x.is_zero() {
+            return x;
+        }
+    }
 }
 
 pub fn generate_two_distinct_primes(seed: u64, bits: usize)-> (BigUint, BigUint) {
