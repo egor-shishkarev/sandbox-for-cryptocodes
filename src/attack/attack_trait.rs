@@ -1,13 +1,16 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
-use num_bigint::BigUint;
-use crate::attack_report::AttackReport;
+use crate::{algorithms::{EncryptionPublicData, KeyExchangePublicData}, attack_report::AttackReport};
 
-pub trait Attack: Send {
+pub type EncryptionAttackFactory = fn() -> Box<dyn EncryptionAttack + Send>;
+pub type KeyExchangeAttackFactory = fn() -> Box<dyn KeyExchangeAttack + Send>;
+
+pub trait EncryptionAttack: Send {
     fn name(&self) -> String;
-    fn run(&self, cancel: Arc<AtomicBool>, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport; // TODO - Прокидывать сюда seed - бред. Нужно делать отдельный модуль с экспериментами, фабриками и т.д.
-    // TODO - потом добавить куда-нибудь, потому что для разных алгоритмов итерация может включать в себя несколько действий.
-    // fn iterations_explain(&self) -> &'static str;
+    fn run(&self, cancel: Arc<AtomicBool>, seed: u64, public_data: EncryptionPublicData) -> AttackReport;
 }
 
-pub type AttackFactory = fn() -> Box<dyn Attack + Send>;
+pub trait KeyExchangeAttack: Send {
+    fn name(&self) -> String;
+    fn run(&self, cancel: Arc<AtomicBool>, seed:u64, public_data: KeyExchangePublicData) -> AttackReport;
+}

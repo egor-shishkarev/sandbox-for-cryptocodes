@@ -2,12 +2,14 @@ use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
 use crate::utils::{modinv, generate_two_distinct_primes};
 
-use super::algorithms_traits::EncryptionAlgorithm;
+use super::{algorithms_traits::EncryptionAlgorithm, EncryptionPublicData};
 
 pub struct RsaToy {
     private_exponent: BigUint,
     pub public_exponent: BigUint,
     pub modulus: BigUint,
+    // TODO - подумать над тем, стоит ли вообще тут это хранить
+    pub ciphertext: Option<Vec<Vec<u8>>>,
 }
 
 impl EncryptionAlgorithm for RsaToy {
@@ -52,7 +54,7 @@ impl EncryptionAlgorithm for RsaToy {
         String::from_utf8(decoded_values).unwrap()
     }
 
-    fn name() -> &'static str {
+    fn name(&self) -> &'static str {
         "RSA"
     }
 
@@ -60,10 +62,14 @@ impl EncryptionAlgorithm for RsaToy {
         println!("\nДлина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
         println!("Публичные данные - ({}, {})\n", &self.public_exponent, &self.modulus);
     }
+
+    fn get_public_data(&self) -> EncryptionPublicData {
+        EncryptionPublicData::Rsa { public_exponent: self.public_exponent.clone(), modulus: self.private_exponent.clone(), ciphertext: self.ciphertext.clone() }
+    }
 }
 
 impl RsaToy {
-    pub fn new(primes_length: usize, seed: u64) -> RsaToy {
+    pub fn new(seed: u64, primes_length: usize) -> RsaToy {
         let (d, e, n) = Self::generate_secret_key(primes_length, seed);
         let key_len = n.to_bytes_le().len() * 8;
         debug_assert!(key_len >= 16);
@@ -72,6 +78,7 @@ impl RsaToy {
             private_exponent: d,
             public_exponent: e,
             modulus: n,
+            ciphertext: None,
         }
     }
 

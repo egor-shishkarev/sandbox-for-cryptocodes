@@ -1,7 +1,7 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{ToPrimitive, Zero};
-use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv, attack::attack_trait::Attack};
+use crate::{algorithms::{EncryptionAlgorithm, EncryptionPublicData}, attack::attack_trait::EncryptionAttack, attack_report::{AttackReport, AttackResult}, utils::modinv};
 pub struct BruteForceFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
 
 #[derive(PartialEq)]
@@ -10,7 +10,7 @@ enum AttackError {
     TooBigModulus,
 }
 
-impl Attack for BruteForceFactorizationAttack {
+impl EncryptionAttack for BruteForceFactorizationAttack {
     fn name(&self) -> String {
         "Атака факторизацией (brute force)".to_string()
     }
@@ -19,9 +19,11 @@ impl Attack for BruteForceFactorizationAttack {
     //     "Количество повторов цикла в которых мы раскладываем modulus на множители"
     // }
 
-    // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
-    // Короче обеспечить обособленность друг от друга
-    fn run(&self, cancel: Arc<AtomicBool>, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
+    fn run(&self, cancel: Arc<AtomicBool>, seed: u64, public_data: EncryptionPublicData) -> AttackReport {
+        let (public_exponent, modulus, ciphertext) = match public_data {
+            EncryptionPublicData::Rsa { public_exponent, modulus, ciphertext } => (public_exponent, modulus, ciphertext),
+        };
+
         let start = Instant::now();
 
         let make_report = |iterations: u64, result: AttackResult| {
@@ -50,7 +52,7 @@ impl Attack for BruteForceFactorizationAttack {
         let phi = (p - 1) * (q - 1);
         let d = modinv(&public_exponent.to_bigint().unwrap(), &BigInt::from(phi)).unwrap();
 
-        let decoded_message = Self::decode(d.to_biguint().unwrap(), modulus.clone(), ciphertext);
+        let decoded_message = Self::decode(d.to_biguint().unwrap(), modulus.clone(), &ciphertext.unwrap());
         make_report(iterations as u64, AttackResult::Success { message: decoded_message })
     }
 }

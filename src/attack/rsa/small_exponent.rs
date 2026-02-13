@@ -1,7 +1,7 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use num_bigint::{BigUint};
 use num_traits::{One, ToPrimitive, Zero};
-use crate::{attack_report::{AttackReport, AttackResult}, attack::attack_trait::Attack};
+use crate::{algorithms::EncryptionPublicData, attack::attack_trait::EncryptionAttack, attack_report::{AttackReport, AttackResult}};
 pub struct SmallExponentAttack {} // Потом можно добавить ограничения, типы и т.д.
 
 #[derive(PartialEq)]
@@ -10,7 +10,7 @@ enum AttackError {
     NotApplicable,
 }
 
-impl Attack for SmallExponentAttack {
+impl EncryptionAttack for SmallExponentAttack {
     fn name(&self) -> String {
         "Атака для малой экспоненты".to_string()
     }
@@ -19,7 +19,11 @@ impl Attack for SmallExponentAttack {
     //     "Количество повторов цикла в которых мы раскладываем modulus на множители"
     // }
 
-    fn run(&self, cancel: Arc<AtomicBool>, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
+    fn run(&self, cancel: Arc<AtomicBool>,  seed: u64, public_data: EncryptionPublicData) -> AttackReport {
+        let (public_exponent, modulus, ciphertext) = match public_data {
+            EncryptionPublicData::Rsa { public_exponent, modulus, ciphertext } => (public_exponent, modulus, ciphertext),
+        };
+
         let start = Instant::now();
 
         let make_report = |iterations: u64, result: AttackResult| {
@@ -43,7 +47,7 @@ impl Attack for SmallExponentAttack {
             }
         };
 
-        let (decoded_vector, iterations) = match Self::try_small_exponent_attack(cancel, ciphertext, public_exponent_u32) {
+        let (decoded_vector, iterations) = match Self::try_small_exponent_attack(cancel, &ciphertext.unwrap(), public_exponent_u32) {
             Ok(v) => v,
             Err(e) => match e {
                 AttackError::NotApplicable => return make_report(0, AttackResult::Failed { reason: String::from("Значение m^e было больше n") }),

@@ -7,7 +7,7 @@ use crossterm::{
 use std::io::stdout;
 use crossbeam_channel::Receiver;
 
-use crate::utils::UiMsg;
+use crate::{algorithms::{AlgorithmFactory}, utils::UiMsg};
 
 pub fn welcome_print() {
     println!("Добро пожаловать в песочницу для атак на криптокоды!");
@@ -15,12 +15,12 @@ pub fn welcome_print() {
     
 }
 
-pub fn print_algorithms(allowed_algorithms: &Vec<String>) {
+pub fn print_algorithms(allowed_algorithms: &Vec<(&str, AlgorithmFactory)>) {
     // TODO - мб перенести сюда всю логику по получению всех алгоритмов?
     println!("Доступные алгоритмы для кодирования:");
     let mut index: u8 = 1;
     for algorithm in allowed_algorithms {
-        println!("{index}) {algorithm}");
+        println!("{}) {}", index, algorithm.0);
         index += 1;
     }
 }

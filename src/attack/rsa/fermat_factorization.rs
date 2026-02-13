@@ -1,14 +1,14 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use num_bigint::{BigUint, ToBigInt};
 use num_traits::{One};
-use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv, attack::attack_trait::Attack};
+use crate::{algorithms::EncryptionPublicData, attack::attack_trait::EncryptionAttack, attack_report::{AttackReport, AttackResult}, utils::modinv};
 pub struct FermatFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
 
 enum AttackError {
     Cancelled { iterations: usize },
 }
 
-impl Attack for FermatFactorizationAttack {
+impl EncryptionAttack for FermatFactorizationAttack {
     fn name(&self) -> String {
         "Атака факторизацией (Ферма)".to_string()
     }
@@ -19,7 +19,11 @@ impl Attack for FermatFactorizationAttack {
 
     // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
     // Короче обеспечить обособленность друг от друга
-    fn run(&self, cancel: Arc<AtomicBool>, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
+    fn run(&self, cancel: Arc<AtomicBool>, seed: u64, public_data: EncryptionPublicData) -> AttackReport {
+        let (public_exponent, modulus, ciphertext) = match public_data {
+            EncryptionPublicData::Rsa { public_exponent, modulus, ciphertext } => (public_exponent, modulus, ciphertext),
+        };
+
         let start = Instant::now();
 
         let make_report = |iterations: u64, result: AttackResult| {
@@ -47,7 +51,7 @@ impl Attack for FermatFactorizationAttack {
         let phi: BigUint = (p - BigUint::one()) * (q - BigUint::one());
         let d = modinv(&public_exponent.to_bigint().unwrap(), &phi.to_bigint().unwrap()).unwrap();
 
-        let decoded_message = Self::decode(d.to_biguint().unwrap(), modulus.clone(), ciphertext);
+        let decoded_message = Self::decode(d.to_biguint().unwrap(), modulus.clone(), &ciphertext.unwrap());
         make_report(iterations as u64, AttackResult::Success { message: decoded_message })
     }
 }
