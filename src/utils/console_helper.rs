@@ -5,6 +5,9 @@ use crossterm::{
     cursor::MoveTo,
 };
 use std::io::stdout;
+use crossbeam_channel::Receiver;
+
+use crate::utils::UiMsg;
 
 pub fn welcome_print() {
     println!("Добро пожаловать в песочницу для атак на криптокоды!");
@@ -22,44 +25,32 @@ pub fn print_algorithms(allowed_algorithms: &Vec<String>) {
     }
 }
 
-pub fn read_line(message: Option<&'static str>) -> String {
-    match message {
-        Some(v) => println!("{} ", v),
-        None => {}
+// TODO - сделать одну функцию для чтения с генериком и опциональной валидацией
+pub fn read_from_ui(rx: &Receiver<UiMsg>, prompt: &str) -> String {
+    loop {
+        println!("{}", prompt);
+        print!("> ");
+        std::io::stdout().flush().unwrap();
+        if let Ok(UiMsg::Line(line)) = rx.recv() {
+            let s = String::from(line.trim());
+            return s;
+        }
+        println!("Введено некорректное значение, повторите ввод");
     }
-
-    print!("> ");
-    std::io::stdout().flush().unwrap();
-    let mut buffer = String::new();
-    std::io::stdin().read_line(&mut buffer).expect("Не удалось прочитать ввод");
-
-    buffer.trim().to_string()
 }
 
-pub fn read_usize<F>(prompt: &'static str, handler: F) -> usize
-where 
-    F: Fn(usize) -> Option<usize>,
-{
+pub fn read_usize_from_ui(rx: &Receiver<UiMsg>, prompt: &str, validate: impl Fn(usize)->bool) -> usize {
     loop {
-        let input = read_line(Some(prompt));
-
-        let result: usize = match input.trim().parse::<usize>() {
-            Ok(v) => {
-                    match handler(v) {
-                        Some(v) => v,
-                        None => { 
-                            println!("Введено некорректное значение, повторите ввод");
-                            continue;
-                        }
-                }
-            },
-            Err(_) => { 
-                println!("Введено некорректное значение, повторите ввод");
-                continue;
+        println!("{}", prompt);
+        print!("> ");
+        std::io::stdout().flush().unwrap();
+        if let Ok(UiMsg::Line(line)) = rx.recv() {
+            let s = line.trim();
+            if let Ok(v) = s.parse::<usize>() {
+                if validate(v) { return v; }
             }
-        };
-
-        return result;
+        }
+        println!("Введено некорректное значение, повторите ввод");
     }
 }
 

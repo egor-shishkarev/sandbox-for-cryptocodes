@@ -1,4 +1,4 @@
-use std::{time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use num_bigint::{BigUint, ToBigInt};
 use num_traits::{One};
 use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv, attack::attack_trait::Attack};
@@ -15,7 +15,7 @@ impl Attack for FermatFactorizationAttack {
 
     // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
     // Короче обеспечить обособленность друг от друга
-    fn run(&self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
+    fn run(&self, cancel: Arc<AtomicBool>, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
         let start = Instant::now();
 
         let make_report = |iterations: u64, result: AttackResult| {
@@ -32,10 +32,11 @@ impl Attack for FermatFactorizationAttack {
             }
         };
 
-        let (p, q, iterations) = match Self::factorize(modulus.clone()) {
+        let (p, q, iterations) = match Self::factorize(cancel, modulus.clone()) {
             Some(v) => v,
             None => {
-                return make_report(0, AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") });
+                // TODO - выводить количество итераций
+                return make_report(0, AttackResult::Cancelled);
             }
         };
         let phi: BigUint = (p - BigUint::one()) * (q - BigUint::one());
@@ -51,7 +52,7 @@ impl FermatFactorizationAttack {
         FermatFactorizationAttack {}
     }
 
-    fn factorize(modulus: BigUint) -> Option<(BigUint, BigUint, u64)> {
+    fn factorize(cancel: Arc<AtomicBool>, modulus: BigUint) -> Option<(BigUint, BigUint, u64)> {
         let mut iterations: u64 = 0;
         let mut a = modulus.sqrt();
 
@@ -61,6 +62,11 @@ impl FermatFactorizationAttack {
 
         loop {
             iterations += 1;
+            if (iterations % 10000) == 0 {
+                if cancel.load(Ordering::Relaxed) {
+                    return None;
+                }
+            }
             let b_square = &a * &a - &modulus;
             if let Some(b) = Self::is_perfect_square(&b_square) {
                 let p = &a - &b;
