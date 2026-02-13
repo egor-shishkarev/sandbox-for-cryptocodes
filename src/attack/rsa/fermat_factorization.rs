@@ -4,6 +4,10 @@ use num_traits::{One};
 use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv, attack::attack_trait::Attack};
 pub struct FermatFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
 
+enum AttackError {
+    Cancelled { iterations: usize },
+}
+
 impl Attack for FermatFactorizationAttack {
     fn name(&self) -> String {
         "Атака факторизацией (Ферма)".to_string()
@@ -33,10 +37,11 @@ impl Attack for FermatFactorizationAttack {
         };
 
         let (p, q, iterations) = match Self::factorize(cancel, modulus.clone()) {
-            Some(v) => v,
-            None => {
-                // TODO - выводить количество итераций
-                return make_report(0, AttackResult::Cancelled);
+            Ok(v) => v,
+            Err(e) => {
+                match e {
+                    AttackError::Cancelled { iterations } => return make_report(iterations as u64, AttackResult::Cancelled),
+                }
             }
         };
         let phi: BigUint = (p - BigUint::one()) * (q - BigUint::one());
@@ -52,8 +57,8 @@ impl FermatFactorizationAttack {
         FermatFactorizationAttack {}
     }
 
-    fn factorize(cancel: Arc<AtomicBool>, modulus: BigUint) -> Option<(BigUint, BigUint, u64)> {
-        let mut iterations: u64 = 0;
+    fn factorize(cancel: Arc<AtomicBool>, modulus: BigUint) -> Result<(BigUint, BigUint, usize), AttackError> {
+        let mut iterations: usize = 0;
         let mut a = modulus.sqrt();
 
         if &a * &a < modulus {
@@ -64,14 +69,14 @@ impl FermatFactorizationAttack {
             iterations += 1;
             if (iterations % 10000) == 0 {
                 if cancel.load(Ordering::Relaxed) {
-                    return None;
+                    return Err(AttackError::Cancelled { iterations });
                 }
             }
             let b_square = &a * &a - &modulus;
             if let Some(b) = Self::is_perfect_square(&b_square) {
                 let p = &a - &b;
                 let q = &a + &b;
-                return Some((p, q, iterations));
+                return Ok((p, q, iterations));
             }
 
             a += BigUint::one();
