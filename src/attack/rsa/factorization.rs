@@ -1,8 +1,14 @@
-use std::{time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{ToPrimitive, Zero};
 use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv, attack::attack_trait::Attack};
 pub struct BruteForceFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
+
+#[derive(PartialEq)]
+enum AttackError {
+    Cancelled { iterations: usize },
+    TooBigModulus,
+}
 
 impl Attack for BruteForceFactorizationAttack {
     fn name(&self) -> String {
@@ -15,7 +21,7 @@ impl Attack for BruteForceFactorizationAttack {
 
     // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
     // Короче обеспечить обособленность друг от друга
-    fn run(&self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
+    fn run(&self, cancel: Arc<AtomicBool>, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
         let start = Instant::now();
 
         let make_report = |iterations: u64, result: AttackResult| {
@@ -32,11 +38,14 @@ impl Attack for BruteForceFactorizationAttack {
             }
         };
 
-        let (p, q, iterations) = match Self::factorize(modulus.clone()) {
-            Some(v) => v,
-            None => {
-                return make_report(0, AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") });
-            }
+        let (p, q, iterations) = match Self::factorize(cancel, modulus.clone()) {
+            Ok(v) => v,
+            Err(e) => {
+                match e {
+                    AttackError::Cancelled { iterations } => return make_report(iterations as u64, AttackResult::Cancelled),
+                    AttackError::TooBigModulus => return make_report(0, AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") }),
+                }
+            },
         };
         let phi = (p - 1) * (q - 1);
         let d = modinv(&public_exponent.to_bigint().unwrap(), &BigInt::from(phi)).unwrap();
@@ -51,29 +60,32 @@ impl BruteForceFactorizationAttack {
         BruteForceFactorizationAttack {}
     }
 
-    fn factorize(modulus: BigUint) -> Option<(usize, usize, usize)> {
+    fn factorize(cancel: Arc<AtomicBool>, modulus: BigUint) -> Result<(usize, usize, usize), AttackError> {
         let end_range: usize = match modulus.sqrt().to_usize() {
             Some(v) => v,
             None => {
-                0
+                return Err(AttackError::TooBigModulus);
             },
         };
 
         let mut first_prime: usize = 0;
         let mut second_prime: usize = 0;
+        let mut iterations: usize = 0;
 
         for i in (3..=end_range).step_by(2) {
+            iterations += 1;
+            if (iterations % 10000) == 0 {
+                if cancel.load(Ordering::Relaxed) {
+                    return Err(AttackError::Cancelled { iterations });
+                }
+            }
             if &modulus % i == BigUint::zero() {
                 first_prime = i;
                 second_prime = (&modulus / i).to_usize().unwrap();
             }
         }
 
-        if first_prime == 0 || second_prime == 0 {
-            return None
-        }
-
-        Some((first_prime, second_prime, first_prime - 3))
+        Ok((first_prime, second_prime, iterations))
     }  
 
     //? По идее ничего страшного в том, что метод встречается в двух местах нет с точки зрения предметной области.

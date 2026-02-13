@@ -1,8 +1,12 @@
-use std::{time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use num_bigint::{BigUint, ToBigInt};
 use num_traits::{One};
 use crate::{attack_report::{AttackReport, AttackResult}, utils::modinv, attack::attack_trait::Attack};
 pub struct FermatFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
+
+enum AttackError {
+    Cancelled { iterations: usize },
+}
 
 impl Attack for FermatFactorizationAttack {
     fn name(&self) -> String {
@@ -15,7 +19,7 @@ impl Attack for FermatFactorizationAttack {
 
     // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
     // Короче обеспечить обособленность друг от друга
-    fn run(&self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
+    fn run(&self, cancel: Arc<AtomicBool>, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
         let start = Instant::now();
 
         let make_report = |iterations: u64, result: AttackResult| {
@@ -32,10 +36,12 @@ impl Attack for FermatFactorizationAttack {
             }
         };
 
-        let (p, q, iterations) = match Self::factorize(modulus.clone()) {
-            Some(v) => v,
-            None => {
-                return make_report(0, AttackResult::Failed { reason: String::from("Слишком большое значение для перебора") });
+        let (p, q, iterations) = match Self::factorize(cancel, modulus.clone()) {
+            Ok(v) => v,
+            Err(e) => {
+                match e {
+                    AttackError::Cancelled { iterations } => return make_report(iterations as u64, AttackResult::Cancelled),
+                }
             }
         };
         let phi: BigUint = (p - BigUint::one()) * (q - BigUint::one());
@@ -51,8 +57,8 @@ impl FermatFactorizationAttack {
         FermatFactorizationAttack {}
     }
 
-    fn factorize(modulus: BigUint) -> Option<(BigUint, BigUint, u64)> {
-        let mut iterations: u64 = 0;
+    fn factorize(cancel: Arc<AtomicBool>, modulus: BigUint) -> Result<(BigUint, BigUint, usize), AttackError> {
+        let mut iterations: usize = 0;
         let mut a = modulus.sqrt();
 
         if &a * &a < modulus {
@@ -61,11 +67,16 @@ impl FermatFactorizationAttack {
 
         loop {
             iterations += 1;
+            if (iterations % 10000) == 0 {
+                if cancel.load(Ordering::Relaxed) {
+                    return Err(AttackError::Cancelled { iterations });
+                }
+            }
             let b_square = &a * &a - &modulus;
             if let Some(b) = Self::is_perfect_square(&b_square) {
                 let p = &a - &b;
                 let q = &a + &b;
-                return Some((p, q, iterations));
+                return Ok((p, q, iterations));
             }
 
             a += BigUint::one();

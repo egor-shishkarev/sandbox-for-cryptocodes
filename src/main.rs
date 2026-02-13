@@ -1,7 +1,13 @@
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, thread, time::Duration};
+use crossbeam_channel::unbounded;
+
 use crate::{
-    attack::{AttackFactory, BruteForceFactorizationAttack, SmallExponentAttack, rsa::FermatFactorizationAttack},
+    attack::{
+        AttackFactory, BruteForceFactorizationAttack, SmallExponentAttack, rsa::FermatFactorizationAttack
+    },
+    attack_report::AttackReport,
     cryptocode::{Algorithm, RsaToy},
-    utils::{clear_console, generate_seed_u64, print_algorithms, read_line, read_usize, save_report, welcome_print}
+    utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, save_report, spawn_input_thread, welcome_print, read_usize_from_ui, read_from_ui}
 };
 mod attack;
 mod attack_report;
@@ -19,28 +25,34 @@ fn main() {
 
     welcome_print();
 
-    let algorithms_len_handler = |v: usize| { if v <= allowed_algorithms.len() { Some(v) } else { None } };
-    let primes_len_handler = |v: usize| { if v >= 8 { Some(v)} else { None } };
+    let algorithms_len_handler = |v: usize| v <= allowed_algorithms.len();
+    let primes_len_handler = |v: usize| v >= 8;
+
+    let (ui_tx, ui_rx) = unbounded::<UiMsg>();
+    spawn_input_thread(ui_tx);
 
     loop {
+        // TODO - рефакторинг. С первого взгляда я не понимаю что тут вообще происходит
+        clear_console();
+
         print_algorithms(&allowed_algorithms);
         let mut seed = generate_seed_u64();
-        let choice: usize = read_usize("\nВведите номер интересующего алгоритма для проведения атак:", algorithms_len_handler);
+        let choice: usize = read_usize_from_ui(&ui_rx,"\nВведите номер интересующего алгоритма для проведения атак:", algorithms_len_handler);
         if choice == 0 {
             break;
         }
 
         // TODO - можно просто просить ввести сид, и если в воде не число, то брать рандомный сид
-        let seeded_algorithm_choice = read_line(Some("\nХотите ли Вы использовать определенный seed? (Y/N)"));
+        let seeded_algorithm_choice = read_from_ui(&ui_rx, "\nХотите ли Вы использовать определенный seed? (Y/N)");
         if seeded_algorithm_choice == "Y".to_string() {
-            seed = read_usize("\nВведите seed", |v| Some(v)) as u64;
+            seed = read_usize_from_ui(&ui_rx,"\nВведите seed", |_v| true) as u64;
         }
 
-        let primes_length: usize = read_usize("\nВведите желаемую длину простых чисел множителей не менее 8 (в битах)", primes_len_handler);
+        let primes_length: usize = read_usize_from_ui(&ui_rx,"\nВведите желаемую длину простых чисел множителей не менее 8 (в битах)", primes_len_handler);
         
         let rsa = RsaToy::new(primes_length, seed);
         rsa.print_public_parameters(); 
-        let message = read_line(Some("Введите сообщение, которое хотите зашифровать"));
+        let message = read_from_ui(&ui_rx, "Введите сообщение, которое хотите зашифровать");
         let encoded_values = rsa.encode(&message);
         // Пока не будем это показывать, потому что я не совсем понимаю как это лучше всего делать и зачем
         //println!("Закодированное сообщение в виде HEX - {}", get_utf8_representation(encoded_values.clone()));
@@ -56,25 +68,49 @@ fn main() {
                 let attack = factory();
                 println!("{}) {}", index + 1, attack.name());
             }
-            let attacks_len_handler = |v: usize| { if v <= allowed_attacks.len() { Some(v) } else { None } };
-            let choice = read_usize("", attacks_len_handler);
+            let attacks_len_validator = |v: usize| v <= allowed_attacks.len();
+            let choice = read_usize_from_ui(&ui_rx, "", attacks_len_validator);
             if choice == 0 {
                 break;
             }
             let chosen_attack = allowed_attacks[choice - 1]();
 
-            println!("\nПроизводим атаку...\n");
-            // TODO - По хорошему нужно добавить возможность выходить из атаки без выхода из программы
-            // TODO - То есть нужно что-то типа асинхронного выполнения атаки делать
-            let result = chosen_attack.run(&rsa.public_exponent, &rsa.modulus, &encoded_values, seed);
-            println!("{}", &result);
+            println!("\nПроизводим атаку... (для прерывания атаки введите q + \"Enter\")\n");
+
+            let cancel  = Arc::new(AtomicBool::new(false));
+            let cancel_for_attack = cancel.clone();
+
+            let public_exponent = rsa.public_exponent.clone();
+            let modulus = rsa.modulus.clone();
+            let encoded_values = encoded_values.clone();
+
+            let attack_handle = thread::spawn(move || chosen_attack.run(cancel_for_attack, &public_exponent, &modulus, &encoded_values, seed));
+            let result: AttackReport;
+
+            loop {
+                if attack_handle.is_finished() {
+                    result = attack_handle.join().unwrap();
+                    println!("{}", result);
+                    break;
+                }
+            
+                if let Ok(UiMsg::Line(line)) = ui_rx.try_recv() {
+                    let cmd = line.trim().to_lowercase();
+                    if cmd == "q" {
+                        cancel.store(true, Ordering::Relaxed);
+                    } else {
+                        println!("Во время атаки доступно только: q");
+                    }
+                }
+            
+                thread::sleep(Duration::from_millis(100));
+            }
+
             match save_report(&result, format!("{}.json", RsaToy::name())) {
                 Ok(v) => v,
                 Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
             };
         }
-
-        clear_console();
     }
 
     println!("Выход из песочницы");

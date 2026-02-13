@@ -1,8 +1,14 @@
-use std::{time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use num_bigint::{BigUint};
 use num_traits::{One, ToPrimitive, Zero};
 use crate::{attack_report::{AttackReport, AttackResult}, attack::attack_trait::Attack};
 pub struct SmallExponentAttack {} // Потом можно добавить ограничения, типы и т.д.
+
+#[derive(PartialEq)]
+enum AttackError {
+    Cancelled { iterations: usize },
+    NotApplicable,
+}
 
 impl Attack for SmallExponentAttack {
     fn name(&self) -> String {
@@ -13,7 +19,7 @@ impl Attack for SmallExponentAttack {
     //     "Количество повторов цикла в которых мы раскладываем modulus на множители"
     // }
 
-    fn run(&self, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
+    fn run(&self, cancel: Arc<AtomicBool>, public_exponent: &BigUint, modulus: &BigUint, ciphertext: &Vec<Vec<u8>>, seed: u64) -> AttackReport {
         let start = Instant::now();
 
         let make_report = |iterations: u64, result: AttackResult| {
@@ -37,11 +43,12 @@ impl Attack for SmallExponentAttack {
             }
         };
 
-        let (decoded_vector, iterations) = match Self::try_small_exponent_attack(ciphertext, public_exponent_u32) {
-            Some(v) => v,
-            None => {
-                return make_report(0, AttackResult::Failed { reason: String::from("Значение m^e было больше n") });
-            }
+        let (decoded_vector, iterations) = match Self::try_small_exponent_attack(cancel, ciphertext, public_exponent_u32) {
+            Ok(v) => v,
+            Err(e) => match e {
+                AttackError::NotApplicable => return make_report(0, AttackResult::Failed { reason: String::from("Значение m^e было больше n") }),
+                AttackError::Cancelled { iterations: v } => return make_report(v as u64, AttackResult::Cancelled),
+            },
         };
 
         let decoded_message = Self::decode(decoded_vector);
@@ -65,7 +72,7 @@ impl SmallExponentAttack {
         String::from_utf8(decoded_values).unwrap()
     }
 
-    fn try_small_exponent_attack(ciphertext: &Vec<Vec<u8>> , public_exponent: u32) -> Option<(Vec<BigUint>, usize)> {
+    fn try_small_exponent_attack(cancel: Arc<AtomicBool>, ciphertext: &Vec<Vec<u8>> , public_exponent: u32) -> Result<(Vec<BigUint>, usize), AttackError> {
         let mut iterations: usize= 0;
         let mut biguint_vector: Vec<BigUint> = Vec::new();
         for bytes_vector in ciphertext {
@@ -75,14 +82,17 @@ impl SmallExponentAttack {
         let mut decoded_vector: Vec<BigUint> = Vec::new();
         for i in 0..biguint_vector.len() {
             iterations += 1;
+            if cancel.load(Ordering::Relaxed) {
+                return Err(AttackError::Cancelled { iterations: iterations });
+            }
             let decoded_value = Self::integer_nth_root(&biguint_vector[i], public_exponent);
             if decoded_value.pow(public_exponent) != biguint_vector[i] {
-                return None
+                return Err(AttackError::NotApplicable);
             }
             decoded_vector.push(decoded_value);
         }
 
-        Some((decoded_vector, iterations))
+        Ok((decoded_vector, iterations))
     }
 
     fn integer_nth_root(value: &BigUint, n: u32) -> BigUint {

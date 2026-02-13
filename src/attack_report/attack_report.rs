@@ -21,6 +21,7 @@ pub struct AttackReport {
 pub enum AttackResult {
     Success { message: String},
     Failed { reason: String },
+    Cancelled,
 }
 
 impl fmt::Display for AttackReport {
@@ -43,6 +44,9 @@ impl fmt::Display for AttackResult {
             }
             AttackResult::Failed { reason } => {
                 write!(f, "Failed\nReason:        {}", reason)
+            }
+            AttackResult::Cancelled => {
+                write!(f, "Cancelled")
             }
         }
     }
