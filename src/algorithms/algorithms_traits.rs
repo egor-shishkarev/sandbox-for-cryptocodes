@@ -7,7 +7,7 @@ pub trait EncryptionAlgorithm {
     fn decode(&self, bytes: Vec<Vec<u8>>) -> String;
     fn name(&self) -> &'static str;
     fn print_public_parameters(&self);
-    fn get_public_data(&self) -> EncryptionPublicData; 
+    fn get_public_data(&self, ciphertext: Option<Vec<Vec<u8>>>) -> EncryptionPublicData; 
     // TODO - нужно еще как-то получать публичные параметры, помимо их вывода.
     // Однако как сделать так, чтобы можно было получать параметры разных типов?
     // Даже с генериками это звучит пока не понятно

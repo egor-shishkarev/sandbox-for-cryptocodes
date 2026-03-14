@@ -1,9 +1,8 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, thread, time::Duration};
 use crossbeam_channel::unbounded;
-use num_bigint::BigUint;
 
 use crate::{
-    algorithms::{AlgorithmFactory, AlgorithmType, EncryptionPublicData, KeyExchangePublicData, dh_factory, rsa_factory}, attack::{
+    algorithms::{AlgorithmFactory, AlgorithmType, dh_factory, rsa_factory}, attack::{
         BruteForceFactorizationAttack, EncryptionAttackFactory, KeyExchangeAttackFactory, SmallExponentAttack, diffie_hellman::BruteForceAttack, rsa::FermatFactorizationAttack
     }, attack_report::AttackReport, utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, read_from_ui, read_usize_from_ui, save_report, spawn_input_thread, welcome_print}
 };
@@ -81,7 +80,7 @@ fn main() {
                     let cancel  = Arc::new(AtomicBool::new(false));
                     let cancel_for_attack = cancel.clone();
 
-                    let public_data = algorithm.get_public_data();
+                    let public_data = algorithm.get_public_data(Some(encoded_values.clone()));
                     let attack_handle = thread::spawn(move || chosen_attack.run(cancel_for_attack, seed, public_data));
                     let result: AttackReport;
 

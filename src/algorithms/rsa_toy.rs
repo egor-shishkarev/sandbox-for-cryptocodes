@@ -8,8 +8,6 @@ pub struct RsaToy {
     private_exponent: BigUint,
     pub public_exponent: BigUint,
     pub modulus: BigUint,
-    // TODO - подумать над тем, стоит ли вообще тут это хранить
-    pub ciphertext: Option<Vec<Vec<u8>>>,
 }
 
 impl EncryptionAlgorithm for RsaToy {
@@ -63,8 +61,8 @@ impl EncryptionAlgorithm for RsaToy {
         println!("Публичные данные - ({}, {})\n", &self.public_exponent, &self.modulus);
     }
 
-    fn get_public_data(&self) -> EncryptionPublicData {
-        EncryptionPublicData::Rsa { public_exponent: self.public_exponent.clone(), modulus: self.private_exponent.clone(), ciphertext: self.ciphertext.clone() }
+    fn get_public_data(&self, ciphertext: Option<Vec<Vec<u8>>>) -> EncryptionPublicData {
+        EncryptionPublicData::Rsa { public_exponent: self.public_exponent.clone(), modulus: self.modulus.clone(), ciphertext: ciphertext }
     }
 }
 
@@ -78,7 +76,6 @@ impl RsaToy {
             private_exponent: d,
             public_exponent: e,
             modulus: n,
-            ciphertext: None,
         }
     }
 
