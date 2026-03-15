@@ -1,6 +1,6 @@
 use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
-use crate::utils::{modinv, generate_two_distinct_primes};
+use crate::{algorithms::algorithms_traits::{Ciphertext, EncryptionAlgorithmKind, Message}, utils::{generate_two_distinct_primes, modinv}};
 
 use super::{algorithms_traits::EncryptionAlgorithm, EncryptionPublicData};
 
@@ -11,8 +11,19 @@ pub struct RsaToy {
 }
 
 impl EncryptionAlgorithm for RsaToy {
+    fn kind(&self) -> EncryptionAlgorithmKind {
+        EncryptionAlgorithmKind::Rsa
+    }
+
     // TODO - возвращаемое значение сделать просто Vec<u8> и переделать алгоритм под вычисление количества байт на число
-    fn encode(&self, message: &str) -> Vec<Vec<u8>> {
+    fn encode(&self, message: Message) -> Ciphertext {
+        let message = match message {
+            Message::Rsa(v) => v,
+            Message::ElGamal { message, k } => {
+                println!("Неподдерживаемый тип сообщения");
+                String::new()
+            }
+        };
         let bytes = message.as_bytes();
         let n = &self.modulus;
         let e = &self.public_exponent;
@@ -35,10 +46,17 @@ impl EncryptionAlgorithm for RsaToy {
             i += chunk_size;
         }
 
-        Self::convert_encoded_to_bytes(encoded)
+        Ciphertext::Rsa(Self::convert_encoded_to_bytes(encoded))
     }
 
-    fn decode(&self, bytes: Vec<Vec<u8>>) -> String {
+    fn decode(&self, bytes: Ciphertext) -> String {
+        let bytes = match bytes {
+            Ciphertext::Rsa(v ) => v,
+            Ciphertext::ElGamal { c1, c2 } => {
+                println!("Неподдерживаемый тип шифротекста");
+                Vec::new()
+            }
+        };
         let mut decoded_values: Vec<u8> = Vec::new();
 
         for value in bytes {
@@ -61,8 +79,24 @@ impl EncryptionAlgorithm for RsaToy {
         println!("Публичные данные - ({}, {})\n", &self.public_exponent, &self.modulus);
     }
 
-    fn get_public_data(&self, ciphertext: Option<Vec<Vec<u8>>>) -> EncryptionPublicData {
-        EncryptionPublicData::Rsa { public_exponent: self.public_exponent.clone(), modulus: self.modulus.clone(), ciphertext: ciphertext }
+    fn get_public_data(&self, ciphertext: Option<Ciphertext>) -> EncryptionPublicData {
+        let ciphertext = match ciphertext {
+            Some(v) => {
+                match v {
+                    Ciphertext::Rsa(v) => v,
+                    Ciphertext::ElGamal { c1, c2 } => {
+                        println!("Неподдерживаемый тип шифротекста");
+                        Vec::new()
+                    }
+                }
+            }
+            None => {
+                println!("Отсутствует шифротекст");
+                Vec::new()
+            }
+            
+        };
+        EncryptionPublicData::Rsa { public_exponent: self.public_exponent.clone(), modulus: self.modulus.clone(), ciphertext: Some(ciphertext) }
     }
 }
 

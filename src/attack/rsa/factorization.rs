@@ -1,7 +1,7 @@
-use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::{Duration, Instant}};
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{ToPrimitive, Zero};
-use crate::{algorithms::{EncryptionAlgorithm, EncryptionPublicData}, attack::attack_trait::EncryptionAttack, attack_report::{AttackReport, AttackResult}, utils::modinv};
+use crate::{algorithms::{EncryptionPublicData}, attack::attack_trait::EncryptionAttack, attack_report::{AttackReport, AttackResult}, utils::modinv};
 pub struct BruteForceFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
 
 #[derive(PartialEq)]
@@ -22,6 +22,15 @@ impl EncryptionAttack for BruteForceFactorizationAttack {
     fn run(&self, cancel: Arc<AtomicBool>, seed: u64, public_data: EncryptionPublicData) -> AttackReport {
         let (public_exponent, modulus, ciphertext) = match public_data {
             EncryptionPublicData::Rsa { public_exponent, modulus, ciphertext } => (public_exponent, modulus, ciphertext),
+            _ => {
+                return AttackReport {
+                    attack_name: Self::name(&self),
+                    duration: Duration::ZERO,
+                    iterations: 0,
+                    result: AttackResult::Failed { reason: String::from("Атака применима только к RSA") },
+                    seed,
+                    public_parameters: serde_json::json!({}) }
+            }
         };
 
         let start = Instant::now();

@@ -1,4 +1,4 @@
-use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::{Duration, Instant}};
 use num_bigint::{BigUint, ToBigInt};
 use num_traits::{One};
 use crate::{algorithms::EncryptionPublicData, attack::attack_trait::EncryptionAttack, attack_report::{AttackReport, AttackResult}, utils::modinv};
@@ -22,6 +22,16 @@ impl EncryptionAttack for FermatFactorizationAttack {
     fn run(&self, cancel: Arc<AtomicBool>, seed: u64, public_data: EncryptionPublicData) -> AttackReport {
         let (public_exponent, modulus, ciphertext) = match public_data {
             EncryptionPublicData::Rsa { public_exponent, modulus, ciphertext } => (public_exponent, modulus, ciphertext),
+            _ => {
+                return AttackReport {
+                    attack_name: Self::name(&self),
+                    duration: Duration::ZERO,
+                    iterations: 0,
+                    result: AttackResult::Failed { reason: String::from("Данная атака применима только для RSA") },
+                    seed,
+                    public_parameters: serde_json::json!({})
+                }
+            }
         };
 
         let start = Instant::now();
