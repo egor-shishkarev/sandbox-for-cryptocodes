@@ -47,6 +47,31 @@ pub trait KeyExchangeAlgorithm {
 
 pub type AlgorithmFactory = fn (u64, usize) -> AlgorithmType; 
 
+#[derive(Clone, Copy, Debug)]
+pub enum DifficultyLevel {
+    VeryWeak = 1,
+    Weak = 2,
+    Medium = 3,
+    Strong = 4,
+    VeryStrong = 5,
+}
+
+impl DifficultyLevel {
+    pub const MIN: usize = 1;
+    pub const MAX: usize = 5;
+
+    pub fn from_choice(choice: usize) -> DifficultyLevel {
+        match choice {
+            1 => DifficultyLevel::VeryWeak,
+            2 => DifficultyLevel::Weak,
+            3 => DifficultyLevel::Medium,
+            4 => DifficultyLevel::Strong,
+            5 => DifficultyLevel::VeryStrong,
+            _ => DifficultyLevel::Medium,
+        }
+    }
+}
+
 pub fn rsa_factory(seed: u64, bits: usize) -> AlgorithmType {
     AlgorithmType::Encryption(Box::new(super::RsaToy::new(seed, bits)))
 }

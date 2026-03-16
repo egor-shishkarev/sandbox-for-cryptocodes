@@ -5,6 +5,7 @@ use num_traits::{Zero, One, ToPrimitive};
 use rand_chacha::ChaCha20Rng;
 
 use crate::utils::{generate_safe_prime, random_in_range, rng_from_seed};
+use crate::algorithms::algorithms_traits::DifficultyLevel;
 
 use super::{algorithms_traits::KeyExchangeAlgorithm, KeyExchangePublicData};
 
@@ -74,6 +75,16 @@ impl DiffieHellmanToy {
         };
 
         (modulus, generator, q)
+    }
+
+    pub fn bits_for_difficulty(level: DifficultyLevel) -> usize {
+        match level {
+            DifficultyLevel::VeryWeak => 8,
+            DifficultyLevel::Weak => 16,
+            DifficultyLevel::Medium => 32,
+            DifficultyLevel::Strong => 64,
+            DifficultyLevel::VeryStrong => 256,
+        }
     }
 
     fn get_generator(modulus: &BigUint, q: &BigUint) -> Option<usize> {

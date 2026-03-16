@@ -1,6 +1,6 @@
 use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
-use crate::{algorithms::algorithms_traits::{Ciphertext, EncryptionAlgorithmKind, Message}, utils::{generate_two_distinct_primes, modinv}};
+use crate::{algorithms::algorithms_traits::{Ciphertext, DifficultyLevel, EncryptionAlgorithmKind, Message}, utils::{generate_two_distinct_primes, modinv}};
 
 use super::{algorithms_traits::EncryptionAlgorithm, EncryptionPublicData};
 
@@ -136,6 +136,16 @@ impl RsaToy {
 
         (d, open_exponent, _n)
         
+    }
+
+    pub fn bits_for_difficulty(level: DifficultyLevel) -> usize {
+        match level {
+            DifficultyLevel::VeryWeak => 8,
+            DifficultyLevel::Weak => 16,
+            DifficultyLevel::Medium => 32,
+            DifficultyLevel::Strong => 64,
+            DifficultyLevel::VeryStrong => 256,
+        }
     }
 
     fn convert_encoded_to_bytes(encoded: Vec<BigUint>) -> Vec<Vec<u8>> {

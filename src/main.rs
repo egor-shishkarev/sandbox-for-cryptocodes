@@ -4,7 +4,7 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 
 use crate::{
-    algorithms::{AlgorithmFactory, AlgorithmType, Ciphertext, EncryptionAlgorithmKind, Message, dh_factory, elgamal_factory, rsa_factory, EncryptionPublicData, KeyExchangePublicData},
+    algorithms::{AlgorithmFactory, AlgorithmType, Ciphertext, DifficultyLevel, DiffieHellmanToy, ElGamalToy, EncryptionAlgorithmKind, EncryptionPublicData, KeyExchangePublicData, Message, RsaToy, dh_factory, elgamal_factory, rsa_factory},
     attack::{
         EncryptionAttackFactory, KeyExchangeAttackFactory,
         diffie_hellman::{BSGSAttack, BruteForceDiffieHellmanAttack},
@@ -29,7 +29,7 @@ fn main() {
     welcome_print();
 
     let algorithms_len_handler = |v: usize| v <= allowed_algorithms.len();
-    let primes_len_handler = |v: usize| v >= 8 && v <= 500;
+    let difficulty_handler = |v: usize| v >= DifficultyLevel::MIN && v <= DifficultyLevel::MAX;
 
     let (ui_tx, ui_rx) = unbounded::<UiMsg>();
     spawn_input_thread(ui_tx);
@@ -49,14 +49,27 @@ fn main() {
             seed = read_usize_from_ui(&ui_rx,"\nВведите seed", |_v| true) as u64;
         }
 
-        // TODO - тут если честно хочется как-от переделать, потому что я хочу для DH делать меньшее ограничение, а для RSA 8 - уже мало
-
-        // TODO - перенести этот выбор дальше, чтобы для каждого алгоритма можно было сделать своё ограничение, и сделать выбор не количества бит, а сложность ключа:
-        // 1 - Слабый, 2 - Средний, 3 - Сильный и т.д., чтобы не нужно было думать о выборе числа, а только о сложности шифрования и сложности атаки
-        let primes_length: usize = read_usize_from_ui(&ui_rx,"\nВведите желаемую длину простых чисел в битах (не менее 8 и не более 500)", primes_len_handler);
-        
         let (_, factory) = &allowed_algorithms[choice - 1];
-        let algorithm = factory(seed, primes_length);
+
+        // Естественно, это всё относительно, взламывать RSA с 2048-битным ключом глупо для песочницы
+        println!("\nВыберите уровень сложности шифрования (1-5):");
+        println!("1 - Очень слабое");
+        println!("2 - Слабое");
+        println!("3 - Среднее");
+        println!("4 - Сильное");
+        println!("5 - Очень сильное");
+
+        let difficulty_choice: usize = read_usize_from_ui(&ui_rx, "\nВведите уровень сложности:", difficulty_handler);
+        let difficulty = DifficultyLevel::from_choice(difficulty_choice);
+
+        let bits_for_difficulty = match choice {
+            1 => RsaToy::bits_for_difficulty(difficulty),
+            2 => DiffieHellmanToy::bits_for_difficulty(difficulty),
+            3 => ElGamalToy::bits_for_difficulty(difficulty),
+            _ => RsaToy::bits_for_difficulty(difficulty),
+        };
+
+        let algorithm = factory(seed, bits_for_difficulty);
     
         match algorithm {
             AlgorithmType::Encryption(algorithm) => {

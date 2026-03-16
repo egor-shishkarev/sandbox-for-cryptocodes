@@ -2,7 +2,7 @@ use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{One, ToPrimitive, Zero};
 use rand::Rng;
 use rand_chacha::ChaCha20Rng;
-use crate::{algorithms::algorithms_traits::{Ciphertext, EncryptionAlgorithmKind, Message}, utils::{generate_weak_prime, generate_safe_prime, modinv, random_in_range, rng_from_seed}};
+use crate::{algorithms::algorithms_traits::{Ciphertext, DifficultyLevel, EncryptionAlgorithmKind, Message}, utils::{generate_weak_prime, generate_safe_prime, modinv, random_in_range, rng_from_seed}};
 
 use super::{algorithms_traits::EncryptionAlgorithm, EncryptionPublicData};
 
@@ -103,7 +103,7 @@ impl ElGamalToy {
 
     fn generate_prime(rng: &mut ChaCha20Rng, prime_length: usize) -> (BigUint, BigUint) {
         // Иногда будет генерировать заведомо плохое простое число, чтобы на него можно было применить атаку Pohlig-Hellman
-        let is_weak_prime = rng.gen_bool(1.0);
+        let is_weak_prime = rng.gen_bool(0.3);
 
         if is_weak_prime {
             println!("Слабое простое число!");
@@ -140,5 +140,15 @@ impl ElGamalToy {
     fn is_good_generator(g: &BigUint, p: &BigUint, q: &BigUint) -> bool {
         g.modpow(&BigUint::from(2u32), p) != BigUint::one()
             && g.modpow(q, p) != BigUint::one()
+    }
+
+    pub fn bits_for_difficulty(level: DifficultyLevel) -> usize {
+        match level {
+            DifficultyLevel::VeryWeak => 8,
+            DifficultyLevel::Weak => 16,
+            DifficultyLevel::Medium => 24,
+            DifficultyLevel::Strong => 64,
+            DifficultyLevel::VeryStrong => 256,
+        }
     }
 }

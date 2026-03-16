@@ -84,12 +84,10 @@ impl BSGSAttack {
         let mut current = BigUint::one();
 
         for j in 0..m {
-            if iterations % 100 == 0 {
-                if cancel.load(Ordering::Relaxed) {
-                    return Err(AttackError::Cancelled { iterations });
-                }
+            if cancel.load(Ordering::Relaxed) {
+                return Err(AttackError::Cancelled { iterations });
             }
-
+            
             baby_steps.entry(current.clone()).or_insert(j);
 
             current = (&current * generator) % modulus;
