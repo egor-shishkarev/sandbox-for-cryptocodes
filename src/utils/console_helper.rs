@@ -4,10 +4,11 @@ use crossterm::{
     terminal::{Clear, ClearType},
     cursor::MoveTo,
 };
+use num_bigint::BigUint;
 use std::io::stdout;
 use crossbeam_channel::Receiver;
 
-use crate::utils::UiMsg;
+use crate::{algorithms::{AlgorithmFactory}, utils::UiMsg};
 
 pub fn welcome_print() {
     println!("Добро пожаловать в песочницу для атак на криптокоды!");
@@ -15,12 +16,12 @@ pub fn welcome_print() {
     
 }
 
-pub fn print_algorithms(allowed_algorithms: &Vec<String>) {
+pub fn print_algorithms(allowed_algorithms: &Vec<(&str, AlgorithmFactory)>) {
     // TODO - мб перенести сюда всю логику по получению всех алгоритмов?
     println!("Доступные алгоритмы для кодирования:");
     let mut index: u8 = 1;
     for algorithm in allowed_algorithms {
-        println!("{index}) {algorithm}");
+        println!("{}) {}", index, algorithm.0);
         index += 1;
     }
 }
@@ -48,6 +49,21 @@ pub fn read_usize_from_ui(rx: &Receiver<UiMsg>, prompt: &str, validate: impl Fn(
             let s = line.trim();
             if let Ok(v) = s.parse::<usize>() {
                 if validate(v) { return v; }
+            }
+        }
+        println!("Введено некорректное значение, повторите ввод");
+    }
+}
+
+pub fn read_biguint_from_ui(rx: &Receiver<UiMsg>, prompt: &str, validate: impl Fn(BigUint)->bool) -> BigUint {
+    loop {
+        println!("{}", prompt);
+        print!("> ");
+        std::io::stdout().flush().unwrap();
+        if let Ok(UiMsg::Line(line)) = rx.recv() {
+            let s = line.trim();
+            if let Ok(v) = s.parse::<BigUint>() {
+                if validate(v.clone()) { return v; }
             }
         }
         println!("Введено некорректное значение, повторите ввод");

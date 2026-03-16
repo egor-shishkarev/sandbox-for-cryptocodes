@@ -1,8 +1,8 @@
 use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
-use crate::utils::{modinv, generate_two_distinct_primes};
+use crate::{algorithms::algorithms_traits::{Ciphertext, EncryptionAlgorithmKind, Message}, utils::{generate_two_distinct_primes, modinv}};
 
-use super::cryptocode::Algorithm;
+use super::{algorithms_traits::EncryptionAlgorithm, EncryptionPublicData};
 
 pub struct RsaToy {
     private_exponent: BigUint,
@@ -10,10 +10,20 @@ pub struct RsaToy {
     pub modulus: BigUint,
 }
 
-// Можно еще сделать создание алгоритма с нужными параметрами, допустим длина секретов и т.д.
-impl Algorithm for RsaToy {
+impl EncryptionAlgorithm for RsaToy {
+    fn kind(&self) -> EncryptionAlgorithmKind {
+        EncryptionAlgorithmKind::Rsa
+    }
+
     // TODO - возвращаемое значение сделать просто Vec<u8> и переделать алгоритм под вычисление количества байт на число
-    fn encode(&self, message: &str) -> Vec<Vec<u8>> {
+    fn encode(&self, message: Message) -> Ciphertext {
+        let message = match message {
+            Message::Rsa(v) => v,
+            Message::ElGamal { message, k } => {
+                println!("Неподдерживаемый тип сообщения");
+                String::new()
+            }
+        };
         let bytes = message.as_bytes();
         let n = &self.modulus;
         let e = &self.public_exponent;
@@ -36,10 +46,17 @@ impl Algorithm for RsaToy {
             i += chunk_size;
         }
 
-        Self::convert_encoded_to_bytes(encoded)
+        Ciphertext::Rsa(Self::convert_encoded_to_bytes(encoded))
     }
 
-    fn decode(&self, bytes: Vec<Vec<u8>>) -> String {
+    fn decode(&self, bytes: Ciphertext) -> String {
+        let bytes = match bytes {
+            Ciphertext::Rsa(v ) => v,
+            Ciphertext::ElGamal { c1, c2 } => {
+                println!("Неподдерживаемый тип шифротекста");
+                Vec::new()
+            }
+        };
         let mut decoded_values: Vec<u8> = Vec::new();
 
         for value in bytes {
@@ -53,7 +70,7 @@ impl Algorithm for RsaToy {
         String::from_utf8(decoded_values).unwrap()
     }
 
-    fn name() -> &'static str {
+    fn name(&self) -> &'static str {
         "RSA"
     }
 
@@ -61,10 +78,30 @@ impl Algorithm for RsaToy {
         println!("\nДлина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
         println!("Публичные данные - ({}, {})\n", &self.public_exponent, &self.modulus);
     }
+
+    fn get_public_data(&self, ciphertext: Option<Ciphertext>) -> EncryptionPublicData {
+        let ciphertext = match ciphertext {
+            Some(v) => {
+                match v {
+                    Ciphertext::Rsa(v) => v,
+                    Ciphertext::ElGamal { c1, c2 } => {
+                        println!("Неподдерживаемый тип шифротекста");
+                        Vec::new()
+                    }
+                }
+            }
+            None => {
+                println!("Отсутствует шифротекст");
+                Vec::new()
+            }
+            
+        };
+        EncryptionPublicData::Rsa { public_exponent: self.public_exponent.clone(), modulus: self.modulus.clone(), ciphertext: Some(ciphertext) }
+    }
 }
 
 impl RsaToy {
-    pub fn new(primes_length: usize, seed: u64) -> RsaToy {
+    pub fn new(seed: u64, primes_length: usize) -> RsaToy {
         let (d, e, n) = Self::generate_secret_key(primes_length, seed);
         let key_len = n.to_bytes_le().len() * 8;
         debug_assert!(key_len >= 16);
