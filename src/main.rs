@@ -4,16 +4,21 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 
 use crate::{
-    algorithms::{AlgorithmFactory, AlgorithmType, Ciphertext, EncryptionAlgorithmKind, Message, dh_factory, elgamal_factory, rsa_factory}, attack::{
-        BruteForceElGamalAttack, BruteForceFactorizationAttack, EncryptionAttackFactory, KeyExchangeAttackFactory, SmallExponentAttack, diffie_hellman::{BSGSAttack, BruteForceDiffieHellmanAttack}, elgamal::PohligHellmanAttack, rsa::FermatFactorizationAttack
-    }, attack_report::AttackReport, utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, random_in_range, read_biguint_from_ui, read_from_ui, read_usize_from_ui, rng_from_seed, save_report, spawn_input_thread, welcome_print}
+    algorithms::{AlgorithmFactory, AlgorithmType, Ciphertext, EncryptionAlgorithmKind, Message, dh_factory, elgamal_factory, rsa_factory, EncryptionPublicData, KeyExchangePublicData},
+    attack::{
+        EncryptionAttackFactory, KeyExchangeAttackFactory,
+        diffie_hellman::{BSGSAttack, BruteForceDiffieHellmanAttack},
+        elgamal::{BruteForceElGamalAttack, PohligHellmanAttack},
+        rsa::{BruteForceFactorizationAttack, FermatFactorizationAttack, SmallExponentAttack}
+    },
+    attack_report::AttackReport,
+    utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, random_in_range, read_biguint_from_ui, read_from_ui, read_usize_from_ui, rng_from_seed, save_report, spawn_input_thread, welcome_print}
 };
 mod attack;
 mod attack_report;
 mod algorithms;
 mod utils;
 
-// TODO - переименовать файлы в папках, лучше чтобы они не совпадали с названиями папок
 fn main() {
     let allowed_algorithms: Vec<(&str, AlgorithmFactory)> = vec![
         ("RSA", rsa_factory),
@@ -30,9 +35,7 @@ fn main() {
     spawn_input_thread(ui_tx);
 
     loop {
-        // TODO - рефакторинг. С первого взгляда я не понимаю что тут вообще происходит
         clear_console();
-
         print_algorithms(&allowed_algorithms);
         let mut seed = generate_seed_u64();
         let choice: usize = read_usize_from_ui(&ui_rx,"\nВведите номер интересующего алгоритма для проведения атак:", algorithms_len_handler);
@@ -66,65 +69,27 @@ fn main() {
                         // Пока не будем это показывать, потому что я не совсем понимаю как это лучше всего делать и зачем
                         //println!("Закодированное сообщение в виде HEX - {}", get_utf8_representation(encoded_values.clone()));
 
-                        let mut encoded_values: Vec<Vec<u8>> = Vec::new();
-                        match ciphertext {
+                        let encoded_values: Vec<Vec<u8>> = match ciphertext {
                             Ciphertext::Rsa(v) => {
                                 debug_assert!(algorithm.decode(Ciphertext::Rsa(v.clone())) == message);
-                                encoded_values = v;
+                                v
                             }
-                            Ciphertext::ElGamal { c1, c2 } => {}
-                        }
-                        
+                            _ => Vec::new(),
+                        };
 
-                        // Суть - ересь. Не хочется это выносить в console_helper, потому что хочется простого добавления алгоритмов,
-                        // но в то же время пока не понимаю как грамотно связывать атаки и алгоритмы
-                        loop {
-                            println!("\nВыберите атаку (или введите 0 для выхода к алгоритмам)");
-                            let allowed_attacks: Vec<EncryptionAttackFactory> = vec![|| Box::new(BruteForceFactorizationAttack::new()), || Box::new(SmallExponentAttack::new()), || Box::new(FermatFactorizationAttack::new())];
-                            for (index, factory) in allowed_attacks.iter().enumerate() {
-                                let attack = factory();
-                                println!("{}) {}", index + 1, attack.name());
-                            }
-                            let attacks_len_validator = |v: usize| v <= allowed_attacks.len();
-                            let choice = read_usize_from_ui(&ui_rx, "", attacks_len_validator);
-                            if choice == 0 {
-                                break;
-                            }
-                            let chosen_attack = allowed_attacks[choice - 1]();
+                        let allowed_attacks: Vec<EncryptionAttackFactory> = vec![
+                            || Box::new(BruteForceFactorizationAttack::new()),
+                            || Box::new(SmallExponentAttack::new()),
+                            || Box::new(FermatFactorizationAttack::new()),
+                        ];
 
-                            println!("\nПроизводим атаку... (для прерывания атаки введите q + \"Enter\")\n");
+                        let algorithm_ref = algorithm.as_ref();
+                        let rsa_public_data_builder = {
+                            let encoded_values = encoded_values.clone();
+                            move || algorithm_ref.get_public_data(Some(Ciphertext::Rsa(encoded_values.clone())))
+                        };
 
-                            let cancel  = Arc::new(AtomicBool::new(false));
-                            let cancel_for_attack = cancel.clone();
-
-                            let public_data = algorithm.get_public_data(Some(Ciphertext::Rsa(encoded_values.clone())));
-                            let attack_handle = thread::spawn(move || chosen_attack.run(cancel_for_attack, seed, public_data));
-                            let result: AttackReport;
-
-                            loop {
-                                if attack_handle.is_finished() {
-                                    result = attack_handle.join().unwrap();
-                                    println!("{}", result);
-                                    break;
-                                }
-                            
-                                if let Ok(UiMsg::Line(line)) = ui_rx.try_recv() {
-                                    let cmd = line.trim().to_lowercase();
-                                    if cmd == "q" {
-                                        cancel.store(true, Ordering::Relaxed);
-                                    } else {
-                                        println!("Во время атаки доступно только: q");
-                                    }
-                                }
-                            
-                                thread::sleep(Duration::from_millis(100));
-                            }
-
-                            match save_report(&result, format!("{}.json", algorithm.name())) {
-                                Ok(v) => v,
-                                Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
-                            };
-                        }
+                        run_attacks::<EncryptionPublicData, _, _>(&ui_rx, seed, algorithm_ref.name(), allowed_attacks, rsa_public_data_builder);
                     },
                     EncryptionAlgorithmKind::ElGamal => {
                         algorithm.print_public_parameters(); 
@@ -140,65 +105,28 @@ fn main() {
                             k = random_in_range(&mut rng, &k_constraint);
                         }
                         let encoded_values = algorithm.encode(Message::ElGamal{ message: BigUint::from(message.clone()), k });
-                        let  (mut first_value, mut second_value) = (BigUint::zero(), BigUint::zero());
-
-                        match encoded_values {
+                        let (first_value, second_value) = match encoded_values {
                             Ciphertext::ElGamal { c1, c2 } => {
                                 let decoded = algorithm.decode(Ciphertext::ElGamal{c1: c1.clone(), c2: c2.clone()});
                                 debug_assert!(decoded == message.to_string());
-                                first_value = c1.clone();
-                                second_value = c2.clone();
+                                (c1, c2)
                             },
-                            _ => {},
-                        }
-                
-                        loop {
-                            println!("\nВыберите атаку (или введите 0 для выхода к алгоритмам)");
-                            let allowed_attacks: Vec<EncryptionAttackFactory> = vec![|| Box::new(BruteForceElGamalAttack::new()), || Box::new(PohligHellmanAttack::new())];
-                            for (index, factory) in allowed_attacks.iter().enumerate() {
-                                let attack = factory();
-                                println!("{}) {}", index + 1, attack.name());
-                            }
-                            let attacks_len_validator = |v: usize| v <= allowed_attacks.len();
-                            let choice = read_usize_from_ui(&ui_rx, "", attacks_len_validator);
-                            if choice == 0 {
-                                break;
-                            }
-                            let chosen_attack = allowed_attacks[choice - 1]();
+                            _ => (BigUint::zero(), BigUint::zero()),
+                        };
 
-                            println!("\nПроизводим атаку... (для прерывания атаки введите q + \"Enter\")\n");
+                        let allowed_attacks: Vec<EncryptionAttackFactory> = vec![
+                            || Box::new(BruteForceElGamalAttack::new()),
+                            || Box::new(PohligHellmanAttack::new()),
+                        ];
 
-                            let cancel  = Arc::new(AtomicBool::new(false));
-                            let cancel_for_attack = cancel.clone();
+                        let algorithm_ref = algorithm.as_ref();
+                        let elgamal_public_data_builder = {
+                            let first_value = first_value.clone();
+                            let second_value = second_value.clone();
+                            move || algorithm_ref.get_public_data(Some(Ciphertext::ElGamal { c1: first_value.clone(), c2: second_value.clone() }))
+                        };
 
-                            let public_data = algorithm.get_public_data(Some(Ciphertext::ElGamal { c1: first_value.clone(), c2: second_value.clone() }));
-                            let attack_handle = thread::spawn(move || chosen_attack.run(cancel_for_attack, seed, public_data));
-                            let result: AttackReport;
-
-                            loop {
-                                if attack_handle.is_finished() {
-                                    result = attack_handle.join().unwrap();
-                                    println!("{}", result);
-                                    break;
-                                }
-                            
-                                if let Ok(UiMsg::Line(line)) = ui_rx.try_recv() {
-                                    let cmd = line.trim().to_lowercase();
-                                    if cmd == "q" {
-                                        cancel.store(true, Ordering::Relaxed);
-                                    } else {
-                                        println!("Во время атаки доступно только: q");
-                                    }
-                                }
-                            
-                                thread::sleep(Duration::from_millis(100));
-                            }
-
-                            match save_report(&result, format!("{}.json", algorithm.name())) {
-                                Ok(v) => v,
-                                Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
-                            };
-                        }
+                        run_attacks::<EncryptionPublicData, _, _>(&ui_rx, seed, algorithm_ref.name(), allowed_attacks, elgamal_public_data_builder);
                     }
                 }
             },
@@ -208,58 +136,80 @@ fn main() {
                 // TODO - можем печатать секрет, но не уверен, что надо, у нас все таки атака, а так мы уже знаем, что там
                 println!("Секретное общее значение - {}", algorithm.establish_shared_secret());
 
-                loop {
-                    println!("\nВыберите атаку (или введите 0 для выхода к алгоритмам)");
-                    let allowed_attacks: Vec<KeyExchangeAttackFactory> = vec![|| Box::new(BruteForceDiffieHellmanAttack::new()), || Box::new(BSGSAttack::new())];
-                    for (index, factory) in allowed_attacks.iter().enumerate() {
-                        let attack = factory();
-                        println!("{}) {}", index + 1, attack.name());
-                    }
-                    let attacks_len_validator = |v: usize| v <= allowed_attacks.len();
-                    let choice = read_usize_from_ui(&ui_rx, "", attacks_len_validator);
-                    if choice == 0 {
-                        break;
-                    }
-                    let chosen_attack = allowed_attacks[choice - 1]();
+                let allowed_attacks: Vec<KeyExchangeAttackFactory> = vec![
+                    || Box::new(BruteForceDiffieHellmanAttack::new()),
+                    || Box::new(BSGSAttack::new()),
+                ];
 
-                    println!("\nПроизводим атаку... (для прерывания атаки введите q + \"Enter\")\n");
+                let dh_public_data_builder = {
+                    let algorithm_ref = algorithm.as_ref();
+                    move || algorithm_ref.get_public_data()
+                };
 
-                    let cancel  = Arc::new(AtomicBool::new(false));
-                    let cancel_for_attack = cancel.clone();
-
-                    let public_data = algorithm.get_public_data();
-
-                    let attack_handle = thread::spawn(move || chosen_attack.run(cancel_for_attack, seed, public_data));
-                    let result: AttackReport;
-
-                    loop {
-                        if attack_handle.is_finished() {
-                            result = attack_handle.join().unwrap();
-                            println!("{}", result);
-                            break;
-                        }
-                    
-                        if let Ok(UiMsg::Line(line)) = ui_rx.try_recv() {
-                            let cmd = line.trim().to_lowercase();
-                            if cmd == "q" {
-                                cancel.store(true, Ordering::Relaxed);
-                            } else {
-                                println!("Во время атаки доступно только: q");
-                            }
-                        }
-                    
-                        thread::sleep(Duration::from_millis(100));
-                    }
-
-                    match save_report(&result, format!("{}.json", algorithm.name())) {
-                        Ok(v) => v,
-                        Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
-                    };
-                }
-
+                run_attacks::<KeyExchangePublicData, _, _>(&ui_rx, seed, algorithm.name(), allowed_attacks, dh_public_data_builder);
             }
         }
     }
 
     println!("\nВыход из песочницы");
+}
+
+fn run_attacks<P, Factory, FBuild>(
+    ui_rx: &crossbeam_channel::Receiver<UiMsg>,
+    seed: u64,
+    algorithm_name: &str,
+    allowed_attacks: Vec<Factory>,
+    build_public_data: FBuild,
+) where
+    P: Send + 'static,
+    Factory: Fn() -> Box<dyn crate::attack::GenericAttack<P>>,
+    FBuild: Fn() -> P,
+{
+    loop {
+        println!("\nВыберите атаку (или введите 0 для выхода к алгоритмам)");
+        for (index, factory) in allowed_attacks.iter().enumerate() {
+            let attack = factory();
+            println!("{}) {}", index + 1, attack.name());
+        }
+        let attacks_len_validator = |v: usize| v <= allowed_attacks.len();
+        let choice = read_usize_from_ui(ui_rx, "", attacks_len_validator);
+        if choice == 0 {
+            break;
+        }
+        let chosen_attack = allowed_attacks[choice - 1]();
+
+        println!("\nПроизводим атаку... (для прерывания атаки введите q + \"Enter\")\n");
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel_for_attack = cancel.clone();
+
+        let public_data = build_public_data();
+
+        let attack_handle = thread::spawn(move || chosen_attack.run(cancel_for_attack, seed, public_data));
+        let result: AttackReport;
+
+        loop {
+            if attack_handle.is_finished() {
+                result = attack_handle.join().unwrap();
+                println!("{}", result);
+                break;
+            }
+
+            if let Ok(UiMsg::Line(line)) = ui_rx.try_recv() {
+                let cmd = line.trim().to_lowercase();
+                if cmd == "q" {
+                    cancel.store(true, Ordering::Relaxed);
+                } else {
+                    println!("Во время атаки доступно только: q");
+                }
+            }
+
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        match save_report(&result, format!("{}.json", algorithm_name)) {
+            Ok(v) => v,
+            Err(_) => println!("\nНе удалось сохранить отчет в файл!\n"),
+        };
+    }
 }
