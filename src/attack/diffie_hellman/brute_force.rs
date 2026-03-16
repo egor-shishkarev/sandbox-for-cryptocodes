@@ -1,8 +1,8 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
-use num_bigint::{BigInt, BigUint, ToBigInt};
+use num_bigint::{BigUint};
 use num_traits::{ToPrimitive, One};
 use crate::{algorithms::{KeyExchangePublicData}, attack::attack_trait::{KeyExchangeAttack}, attack_report::{AttackReport, AttackResult}, utils::modinv};
-pub struct BruteForceAttack {} // Потом можно добавить ограничения, типы и т.д.
+pub struct BruteForceDiffieHellmanAttack {} // Потом можно добавить ограничения, типы и т.д.
 
 enum AttackError {
     TooBigModulus,
@@ -10,7 +10,7 @@ enum AttackError {
     NotApplicable { iterations: usize },
 }
 
-impl KeyExchangeAttack for BruteForceAttack {
+impl KeyExchangeAttack for BruteForceDiffieHellmanAttack {
     fn name(&self) -> String {
         "Brute force".to_string()
     }
@@ -72,9 +72,9 @@ impl KeyExchangeAttack for BruteForceAttack {
     }
 }
 
-impl BruteForceAttack {
-    pub fn new() -> BruteForceAttack{
-        BruteForceAttack {}
+impl BruteForceDiffieHellmanAttack {
+    pub fn new() -> BruteForceDiffieHellmanAttack{
+        BruteForceDiffieHellmanAttack {}
     }
 
     // TODO - Переименовать
