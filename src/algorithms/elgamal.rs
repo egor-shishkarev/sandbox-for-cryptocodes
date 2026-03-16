@@ -74,7 +74,6 @@ impl EncryptionAlgorithm for ElGamalToy {
                 }
             }
             None => {
-                println!("Отсутствует шифротекст");
                 (BigUint::zero(), BigUint::zero())
             }
             

@@ -6,7 +6,7 @@ use num_traits::Zero;
 use crate::{
     algorithms::{AlgorithmFactory, AlgorithmType, Ciphertext, EncryptionAlgorithmKind, Message, dh_factory, elgamal_factory, rsa_factory}, attack::{
         BruteForceFactorizationAttack, EncryptionAttackFactory, KeyExchangeAttackFactory, SmallExponentAttack, diffie_hellman::{BSGSAttack, BruteForceAttack}, rsa::FermatFactorizationAttack
-    }, attack_report::AttackReport, utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, random_in_range, read_from_ui, read_usize_from_ui, rng_from_seed, save_report, spawn_input_thread, welcome_print}
+    }, attack_report::AttackReport, utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, random_in_range, read_biguint_from_ui, read_from_ui, read_usize_from_ui, rng_from_seed, save_report, spawn_input_thread, welcome_print}
 };
 mod attack;
 mod attack_report;
@@ -24,7 +24,7 @@ fn main() {
     welcome_print();
 
     let algorithms_len_handler = |v: usize| v <= allowed_algorithms.len();
-    let primes_len_handler = |v: usize| v >= 8;
+    let primes_len_handler = |v: usize| v >= 8 && v <= 500;
 
     let (ui_tx, ui_rx) = unbounded::<UiMsg>();
     spawn_input_thread(ui_tx);
@@ -47,7 +47,7 @@ fn main() {
         }
 
         // TODO - тут если честно хочется как-от переделать, потому что я хочу для DH делать меньшее ограничение, а для RSA 8 - уже мало
-        let primes_length: usize = read_usize_from_ui(&ui_rx,"\nВведите желаемую длину простых чисел не менее 8 (в битах)", primes_len_handler);
+        let primes_length: usize = read_usize_from_ui(&ui_rx,"\nВведите желаемую длину простых чисел в битах (не менее 8 и не более 500)", primes_len_handler);
         
         let (_, factory) = &allowed_algorithms[choice - 1];
         let algorithm = factory(seed, primes_length);
@@ -129,24 +129,25 @@ fn main() {
                             algorithms::EncryptionPublicData::ElGamal { modulus, generator: _, key: _, ciphertext: _ } => modulus - BigUint::from(2u8),
                             _ => BigUint::zero(),
                         };
-                        let message = read_usize_from_ui(&ui_rx, "Введите число, которое хотите зашифровать", |v| v > 0);
+                        let message = read_biguint_from_ui(&ui_rx, &format!("Введите число, которое хотите зашифровать (не более {})", k_constraint), |v| v < k_constraint);
                         let prompt = format!("Введите число k не большее {} или 0 для случайного выбора", k_constraint.to_string());
-                        let mut k = BigUint::from(read_usize_from_ui(&ui_rx, &prompt, |v| v >= 0 && BigUint::from(v) < k_constraint));
+                        let mut k = BigUint::from(read_usize_from_ui(&ui_rx, &prompt, |v| BigUint::from(v) < k_constraint));
                         if k == BigUint::zero() {
                             let mut rng = rng_from_seed(seed);
                             k = random_in_range(&mut rng, &k_constraint);
                         }
-                        let encoded_values = algorithm.encode(Message::ElGamal{ message: BigUint::from(message), k });
-                        let  (c1, c2) = (BigUint::zero(), BigUint::zero());
+                        let encoded_values = algorithm.encode(Message::ElGamal{ message: BigUint::from(message.clone()), k });
+                        let  (mut first_value, mut second_value) = (BigUint::zero(), BigUint::zero());
 
                         match encoded_values {
-                            Ciphertext::ElGamal { mut c1, mut c2 } => {
-                                c1 = c1;
-                                c2 = c2;
+                            Ciphertext::ElGamal { c1, c2 } => {
                                 println!("({}, {})", c1, c2);
-                                let decoded = algorithm.decode(Ciphertext::ElGamal{c1, c2});
-                                println!("{}", decoded);
+                                let decoded = algorithm.decode(Ciphertext::ElGamal{c1: c1.clone(), c2: c2.clone()});
+                                println!("decoded - {}", decoded);
+                                println!("original - {}", message.to_string());
                                 debug_assert!(decoded == message.to_string());
+                                first_value = c1.clone();
+                                second_value = c2.clone();
                             },
                             _ => {},
                         }
@@ -170,7 +171,7 @@ fn main() {
                             let cancel  = Arc::new(AtomicBool::new(false));
                             let cancel_for_attack = cancel.clone();
 
-                            let public_data = algorithm.get_public_data(Some(Ciphertext::ElGamal { c1: c1.clone(), c2: c2.clone() }));
+                            let public_data = algorithm.get_public_data(Some(Ciphertext::ElGamal { c1: first_value.clone(), c2: second_value.clone() }));
                             let attack_handle = thread::spawn(move || chosen_attack.run(cancel_for_attack, seed, public_data));
                             let result: AttackReport;
 
