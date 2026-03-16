@@ -1,4 +1,4 @@
-use std::{iter, sync::{Arc, atomic::{AtomicBool, Ordering}}, time::{Duration, Instant}};
+use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::{Duration, Instant}};
 
 use num_bigint::{BigUint, ToBigInt};
 use num_traits::{ToPrimitive, Zero};
