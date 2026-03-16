@@ -48,7 +48,7 @@ impl EncryptionAttack for BruteForceElGamalAttack {
             }
         };
 
-        let (secret_key, iterations) = match Self::find_seceret_key(cancel, &modulus, &generator, &key) {
+        let (secret_key, iterations) = match Self::find_secret_key(cancel, &modulus, &generator, &key) {
             Ok(v) => v,
             Err(err) => {
                 match err {
@@ -76,7 +76,7 @@ impl BruteForceElGamalAttack {
         message.to_string()
     }  
 
-    fn find_seceret_key(cancel: Arc<AtomicBool>, modulus: &BigUint, generator: &BigUint, key: &BigUint) -> Result<(BigUint, usize), AttackError> {
+    fn find_secret_key(cancel: Arc<AtomicBool>, modulus: &BigUint, generator: &BigUint, key: &BigUint) -> Result<(BigUint, usize), AttackError> {
         // Если modulus маленький, то можно перебрать все значения и найти x - секретный ключ
         // Также, если k был маленьким, то его тоже можно перебрать. Но k уже не является публичной частью, так что тут спорно
 

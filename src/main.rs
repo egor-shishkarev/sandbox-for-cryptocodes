@@ -5,7 +5,7 @@ use num_traits::Zero;
 
 use crate::{
     algorithms::{AlgorithmFactory, AlgorithmType, Ciphertext, EncryptionAlgorithmKind, Message, dh_factory, elgamal_factory, rsa_factory}, attack::{
-        BruteForceElGamalAttack, BruteForceFactorizationAttack, EncryptionAttackFactory, KeyExchangeAttackFactory, SmallExponentAttack, diffie_hellman::{BSGSAttack, BruteForceDiffieHellmanAttack}, rsa::FermatFactorizationAttack
+        BruteForceElGamalAttack, BruteForceFactorizationAttack, EncryptionAttackFactory, KeyExchangeAttackFactory, SmallExponentAttack, diffie_hellman::{BSGSAttack, BruteForceDiffieHellmanAttack}, elgamal::PohligHellmanAttack, rsa::FermatFactorizationAttack
     }, attack_report::AttackReport, utils::{UiMsg, clear_console, generate_seed_u64, print_algorithms, random_in_range, read_biguint_from_ui, read_from_ui, read_usize_from_ui, rng_from_seed, save_report, spawn_input_thread, welcome_print}
 };
 mod attack;
@@ -47,6 +47,9 @@ fn main() {
         }
 
         // TODO - тут если честно хочется как-от переделать, потому что я хочу для DH делать меньшее ограничение, а для RSA 8 - уже мало
+
+        // TODO - перенести этот выбор дальше, чтобы для каждого алгоритма можно было сделать своё ограничение, и сделать выбор не количества бит, а сложность ключа:
+        // 1 - Слабый, 2 - Средний, 3 - Сильный и т.д., чтобы не нужно было думать о выборе числа, а только о сложности шифрования и сложности атаки
         let primes_length: usize = read_usize_from_ui(&ui_rx,"\nВведите желаемую длину простых чисел в битах (не менее 8 и не более 500)", primes_len_handler);
         
         let (_, factory) = &allowed_algorithms[choice - 1];
@@ -151,7 +154,7 @@ fn main() {
                 
                         loop {
                             println!("\nВыберите атаку (или введите 0 для выхода к алгоритмам)");
-                            let allowed_attacks: Vec<EncryptionAttackFactory> = vec![|| Box::new(BruteForceElGamalAttack::new())];
+                            let allowed_attacks: Vec<EncryptionAttackFactory> = vec![|| Box::new(BruteForceElGamalAttack::new()), || Box::new(PohligHellmanAttack::new())];
                             for (index, factory) in allowed_attacks.iter().enumerate() {
                                 let attack = factory();
                                 println!("{}) {}", index + 1, attack.name());

@@ -1,7 +1,8 @@
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{One, ToPrimitive, Zero};
+use rand::Rng;
 use rand_chacha::ChaCha20Rng;
-use crate::{algorithms::algorithms_traits::{Ciphertext, EncryptionAlgorithmKind, Message}, utils::{generate_safe_prime, modinv, random_in_range, rng_from_seed}};
+use crate::{algorithms::algorithms_traits::{Ciphertext, EncryptionAlgorithmKind, Message}, utils::{generate_weak_prime, generate_safe_prime, modinv, random_in_range, rng_from_seed}};
 
 use super::{algorithms_traits::EncryptionAlgorithm, EncryptionPublicData};
 
@@ -100,8 +101,20 @@ impl ElGamalToy {
         }
     }
 
+    fn generate_prime(rng: &mut ChaCha20Rng, prime_length: usize) -> (BigUint, BigUint) {
+        // Иногда будет генерировать заведомо плохое простое число, чтобы на него можно было применить атаку Pohlig-Hellman
+        let is_weak_prime = rng.gen_bool(1.0);
+
+        if is_weak_prime {
+            println!("Слабое простое число!");
+            return generate_weak_prime(rng, prime_length);
+        } else {
+            return generate_safe_prime(rng, prime_length)
+        }
+    }
+
     fn generate_params(rng: &mut ChaCha20Rng, prime_length: usize) -> (BigUint, BigUint) {
-        let (modulus, q) = generate_safe_prime(rng, prime_length);
+        let (modulus, q) = Self::generate_prime(rng, prime_length);
         let generator = match Self::get_generator(&modulus, &q) {
             Some(v) => BigUint::from(v),
             None => BigUint::zero(), // TODO - ну не ноль конечно же, но хз пока что сюда проставить
