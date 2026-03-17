@@ -1,11 +1,11 @@
-# Песочница для криптокодов
+# Песочница для атак на криптокоды
 Консольное приложение на **Rust**, представляющее собой песочницу для экспериментов с криптографическими алгоритмами и атаками на них.
 Проект позволяет запускать различные алгоритмы шифрования и проверять их устойчивость к известным криптоаналитическим атакам.
 На данный момент поддерживаются следующие алгоритмы:
 
 - **RSA**
 - **Diffie-Hellman**
-- **El Gamal**
+- **ElGamal**
 
 ## Возможности
 - Запуск различных атак
@@ -19,6 +19,20 @@
 - Продолжительность выполнения
 - Количество итераций
 - Результат атаки
+
+## Реализованные атаки
+**RSA**:
+- Brute force factorization
+- Fermat factorization
+- Small exponent
+
+**Diffie-Hellman**:
+- Brute force
+- Baby-step Giant-step
+
+**ElGamal**:
+- Brute force
+- Pohlig-Hellman
 
 ## Клонирование репозитория
 Для клонирования репозитория выполните команду
@@ -46,18 +60,4 @@ cargo build
 cargo run
 ```
 в папке репозитория
-
-## Реализованные атаки
-**RSA**:
-- Brute force factorization
-- Fermat factorization
-- Small exponent attack
-
-**Diffie-Hellman**:
-- Brute force
-- Baby-step Giant-step
-
-**ElGamal**:
-- Brute force
-- Pohlig-Hellman
  
