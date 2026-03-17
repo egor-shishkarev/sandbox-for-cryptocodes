@@ -2,16 +2,38 @@ use num_bigint::BigUint;
 
 use super::AlgorithmType;
 
+#[derive(Debug)]
+pub enum CryptoError {
+    UnsupportedMessageType { expected: &'static str, got: &'static str },
+    UnsupportedCiphertextType { expected: &'static str, got: &'static str },
+    InverseDoesNotExist,
+    InvalidUtf8,
+}
+
+impl std::fmt::Display for CryptoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CryptoError::UnsupportedMessageType { expected, got } => {
+                write!(f, "Неподдерживаемый тип сообщения (ожидалось {expected}, получено {got})")
+            }
+            CryptoError::UnsupportedCiphertextType { expected, got } => {
+                write!(f, "Неподдерживаемый тип шифротекста (ожидалось {expected}, получено {got})")
+            }
+            CryptoError::InverseDoesNotExist => write!(f, "Инверсия параметра не существует"),
+            CryptoError::InvalidUtf8 => write!(f, "Неправильный формат для UTF-8 в расшифрованных байтах"),
+        }
+    }
+}
+
+impl std::error::Error for CryptoError {}
+
 pub trait EncryptionAlgorithm {
     fn kind(&self) -> EncryptionAlgorithmKind;
-    fn encode(&self, message: Message) -> Ciphertext; // В идеале Bytes, но пока хз как написать правильно
-    fn decode(&self, bytes: Ciphertext) -> String;
+    fn encode(&self, message: Message) -> Result<Ciphertext, CryptoError>; // В идеале Bytes, но пока хз как написать правильно
+    fn decode(&self, bytes: Ciphertext) -> Result<String, CryptoError>;
     fn name(&self) -> &'static str;
     fn print_public_parameters(&self);
     fn get_public_data(&self, ciphertext: Option<Ciphertext>) -> EncryptionPublicData; 
-    // TODO - нужно еще как-то получать публичные параметры, помимо их вывода.
-    // Однако как сделать так, чтобы можно было получать параметры разных типов?
-    // Даже с генериками это звучит пока не понятно
 }
 
 pub enum Ciphertext {
@@ -22,12 +44,30 @@ pub enum Ciphertext {
     },
 }
 
+impl Ciphertext {
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            Ciphertext::Rsa(_) => "RSA",
+            Ciphertext::ElGamal { .. } => "ElGamal",
+        }
+    }
+}
+
 pub enum Message {
     Rsa(String),
     ElGamal {
         message: BigUint,
         k: BigUint,
     },
+}
+
+impl Message {
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            Message::Rsa(_) => "RSA",
+            Message::ElGamal { .. } => "ElGamal",
+        }
+    }
 }
 
 pub enum EncryptionAlgorithmKind {
@@ -85,9 +125,8 @@ pub fn dh_factory(seed: u64, bits: usize) -> AlgorithmType {
 }
 
 pub enum EncryptionPublicData {
-    // TODO - Все таки шифротекст доступен публично и на момент атаки мы его знаем. Просто у меня нет его в self, поэтому передаваться будет None
     Rsa { public_exponent: BigUint, modulus: BigUint, ciphertext: Option<Vec<Vec<u8>>> },
-    ElGamal { modulus: BigUint, generator: BigUint, key: BigUint, ciphertext: (BigUint, BigUint) }
+    ElGamal { modulus: BigUint, generator: BigUint, key: BigUint, ciphertext: Option<(BigUint, BigUint)> }
 }
 
 pub enum KeyExchangePublicData {

@@ -13,12 +13,6 @@ impl EncryptionAttack for FermatFactorizationAttack {
         "Атака факторизацией (Ферма)".to_string()
     }
 
-    // fn iterations_explain(&self) -> &'static str {
-    //     "Количество повторов цикла в которых мы раскладываем modulus на множители"
-    // }
-
-    // TODO - сюда нужно передавать Oracle, чтобы было нагляднее, что между шифрованием и атакой есть только конкретно эти значения.
-    // Короче обеспечить обособленность друг от друга
     fn run(&self, cancel: Arc<AtomicBool>, seed: u64, public_data: EncryptionPublicData) -> AttackReport {
         let (public_exponent, modulus, ciphertext) = match public_data {
             EncryptionPublicData::Rsa { public_exponent, modulus, ciphertext } => (public_exponent, modulus, ciphertext),
@@ -105,8 +99,6 @@ impl FermatFactorizationAttack {
         None
     }
 
-    //? По идее ничего страшного в том, что метод встречается в двух местах нет с точки зрения предметной области.
-    // Так как мы не можем использовать decode функцию из RsaToy, она нам недоступна
     fn decode(private_exponent: BigUint, modulus: BigUint, bytes: &Vec<Vec<u8>>) -> String {
         let mut decoded_values: Vec<u8> = Vec::new();
 

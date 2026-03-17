@@ -17,7 +17,6 @@ pub fn welcome_print() {
 }
 
 pub fn print_algorithms(allowed_algorithms: &Vec<(&str, AlgorithmFactory)>) {
-    // TODO - мб перенести сюда всю логику по получению всех алгоритмов?
     println!("Доступные алгоритмы для кодирования:");
     let mut index: u8 = 1;
     for algorithm in allowed_algorithms {
@@ -78,17 +77,3 @@ pub fn clear_console() {
         MoveTo(0, 0)
     ).unwrap();
 }
-
-// pub fn get_utf8_representation(bytes_vector: Vec<Vec<u8>>) -> String {
-//     let mut representation = String::new();
-
-//     for vector in bytes_vector {
-//         for byte in vector {
-//             representation.push_str(&format!("{:02X} ", byte));
-//         }
-
-//     }
-
-//     representation.pop();
-//     representation
-// }

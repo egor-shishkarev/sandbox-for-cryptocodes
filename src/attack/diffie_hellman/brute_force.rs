@@ -1,8 +1,8 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::Instant};
 use num_bigint::{BigUint};
 use num_traits::{ToPrimitive, One};
-use crate::{algorithms::{KeyExchangePublicData}, attack::attack_trait::{KeyExchangeAttack}, attack_report::{AttackReport, AttackResult}, utils::modinv};
-pub struct BruteForceDiffieHellmanAttack {} // Потом можно добавить ограничения, типы и т.д.
+use crate::{algorithms::{KeyExchangePublicData}, attack::attack_trait::{KeyExchangeAttack}, attack_report::{AttackReport, AttackResult}};
+pub struct BruteForceDiffieHellmanAttack {}
 
 enum AttackError {
     TooBigModulus,
@@ -14,10 +14,6 @@ impl KeyExchangeAttack for BruteForceDiffieHellmanAttack {
     fn name(&self) -> String {
         "Brute force".to_string()
     }
-
-    // fn iterations_explain(&self) -> &'static str {
-    //     "Количество повторов цикла в которых мы раскладываем modulus на множители"
-    // }
 
     fn run(&self, cancel: Arc<AtomicBool>, seed: u64, public_data: KeyExchangePublicData) -> AttackReport {
         let (modulus, generator, alice_public_message, bob_public_message) = match public_data {
@@ -42,8 +38,7 @@ impl KeyExchangeAttack for BruteForceDiffieHellmanAttack {
             }
         };
 
-        // TODO - дублирующийся код
-        let (alice_secret, iterations_for_alice) = match Self::decode(&cancel, &modulus, &generator, &alice_public_message) {
+        let (alice_secret, iterations_for_alice) = match Self::find_shared_key(&cancel, &modulus, &generator, &alice_public_message) {
             Ok(v) => v,
             Err(e) => {
                 match e {
@@ -53,18 +48,6 @@ impl KeyExchangeAttack for BruteForceDiffieHellmanAttack {
                 }
             }
         };
-
-        // TODO - дублирующийся код
-        // let (bob_secret, iterations_for_bob) = match Self::decode(&cancel, &modulus, &generator, &bob_public_message) {
-        //     Ok(v) => v,
-        //     Err(e) => {
-        //         match e {
-        //             AttackError::Cancelled { iterations } => return make_report(iterations as u64, AttackResult::Cancelled),
-        //             AttackError::NotApplicable { iterations } => return make_report(iterations as u64, AttackResult::Failed { reason: "Не удалось найти секрет Боба".to_string() }),
-        //             AttackError::TooBigModulus => return make_report(0, AttackResult::Failed { reason: "Слишком большой модуль для перебора".to_string() }),
-        //         }
-        //     }
-        // };
 
         let shared = bob_public_message.modpow(&alice_secret, &modulus);
 
@@ -77,11 +60,7 @@ impl BruteForceDiffieHellmanAttack {
         BruteForceDiffieHellmanAttack {}
     }
 
-    // TODO - Переименовать
-    /**
-     * Ищем секретную часть - экспоненту
-     */
-    fn decode(cancel: &Arc<AtomicBool>, modulus: &BigUint, generator: &BigUint, public_message: &BigUint) -> Result<(BigUint, usize), AttackError> {
+    fn find_shared_key(cancel: &Arc<AtomicBool>, modulus: &BigUint, generator: &BigUint, public_message: &BigUint) -> Result<(BigUint, usize), AttackError> {
         let mut iterations: usize = 0;
         let end_range: usize = match modulus.to_usize() {
             Some(v) => v,
@@ -103,7 +82,6 @@ impl BruteForceDiffieHellmanAttack {
                 return Ok((BigUint::from(i), iterations));
             }
 
-            // следующий шаг: g^(x+1) = g^x * g
             cur = (&cur * generator) % modulus;
         }
 

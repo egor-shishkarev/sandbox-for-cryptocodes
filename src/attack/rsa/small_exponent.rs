@@ -2,7 +2,7 @@ use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::{Duration, Instant}
 use num_bigint::{BigUint};
 use num_traits::{One, ToPrimitive, Zero};
 use crate::{algorithms::EncryptionPublicData, attack::attack_trait::EncryptionAttack, attack_report::{AttackReport, AttackResult}};
-pub struct SmallExponentAttack {} // Потом можно добавить ограничения, типы и т.д.
+pub struct SmallExponentAttack {}
 
 #[derive(PartialEq)]
 enum AttackError {
@@ -14,10 +14,6 @@ impl EncryptionAttack for SmallExponentAttack {
     fn name(&self) -> String {
         "Атака для малой экспоненты".to_string()
     }
-
-    // fn iterations_explain(&self) -> &'static str {
-    //     "Количество повторов цикла в которых мы раскладываем modulus на множители"
-    // }
 
     fn run(&self, cancel: Arc<AtomicBool>,  seed: u64, public_data: EncryptionPublicData) -> AttackReport {
         let (public_exponent, modulus, ciphertext) = match public_data {
