@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Zero, One};
-use rand::{Rng, SeedableRng};
+use rand::{SeedableRng};
 use rand_core::{OsRng, RngCore};
 use rand_chacha::ChaCha20Rng;
 use num_prime::{RandPrime, PrimalityTestConfig, nt_funcs::is_prime};
@@ -37,14 +37,9 @@ pub fn rng_from_seed(seed: u64) -> ChaCha20Rng {
     ChaCha20Rng::from_seed(s)
 }
 
-pub fn generate_prime(rng: &mut ChaCha20Rng, bits: usize) -> BigUint {
-    let config = Some(PrimalityTestConfig::bpsw());
-    rng.gen_prime_exact(bits, config)
-}
-
 // Будет так, потому что рандомная генерация слишком нестабильна и не может подобрать такие числа
 pub fn generate_weak_prime(
-    rng: &mut ChaCha20Rng,
+    _: &mut ChaCha20Rng, // Для поддержания единообразия функций генерации простых чисел
     target_bits: usize,
 ) -> (BigUint, BigUint) {
     let rounded = ((target_bits + 7) / 8) * 8;
@@ -153,8 +148,6 @@ pub fn random_in_range(rng: &mut ChaCha20Rng, upper: &BigUint) -> BigUint {
 }
 
 pub fn generate_two_distinct_primes(seed: u64, bits: usize)-> (BigUint, BigUint) {
-    //? По идее на каждый запрос на кодирование нужно делать свой seed, поэтому можно просто здесь принимать seed и создавать тут же RNG
-
     let mut rng = rng_from_seed(seed);
 
     let config = Some(PrimalityTestConfig::bpsw());

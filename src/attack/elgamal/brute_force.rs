@@ -48,6 +48,11 @@ impl EncryptionAttack for BruteForceElGamalAttack {
             }
         };
 
+        let ciphertext = match ciphertext {
+            Some(v) => v,
+            None => return make_report(0, AttackResult::Failed { reason: String::from("Отсутствует шифротекст") }),
+        };
+
         let (secret_key, iterations) = match Self::find_secret_key(cancel, &modulus, &generator, &key) {
             Ok(v) => v,
             Err(err) => {
@@ -99,7 +104,6 @@ impl BruteForceElGamalAttack {
             }
 
             if generator.modpow(&BigUint::from(i), &modulus) == *key {
-                // Нашли секретный ключ - i
                 secret_key = BigUint::from(i);
                 break;
                 

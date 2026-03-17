@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::{Arc, atomic::{AtomicBool, Ordering}}, tim
 use num_bigint::{BigUint, ToBigInt};
 use num_traits::{ToPrimitive, One};
 use crate::{algorithms::{KeyExchangePublicData}, attack::attack_trait::{KeyExchangeAttack}, attack_report::{AttackReport, AttackResult}, utils::modinv};
-pub struct BSGSAttack {} // Потом можно добавить ограничения, типы и т.д.
+pub struct BSGSAttack {}
 
 enum AttackError {
     TooBigModulus,
@@ -38,8 +38,7 @@ impl KeyExchangeAttack for BSGSAttack {
             }
         };
 
-        // TODO - дублирующийся код
-        let (alice_secret, iterations_for_alice) = match Self::decode(&cancel, &modulus, &generator, &alice_public_message) {
+        let (alice_secret, iterations_for_alice) = match Self::find_shared_key(&cancel, &modulus, &generator, &alice_public_message) {
             Ok(v) => v,
             Err(e) => {
                 match e {
@@ -61,8 +60,7 @@ impl BSGSAttack {
         BSGSAttack {}
     }
 
-    // TODO - Переименовать
-    fn decode(cancel: &Arc<AtomicBool>, modulus: &BigUint, generator: &BigUint, public_message: &BigUint) -> Result<(BigUint, usize), AttackError> {
+    fn find_shared_key(cancel: &Arc<AtomicBool>, modulus: &BigUint, generator: &BigUint, public_message: &BigUint) -> Result<(BigUint, usize), AttackError> {
         let mut iterations: usize = 0;
 
         let modulus_minus_one = modulus - BigUint::one();

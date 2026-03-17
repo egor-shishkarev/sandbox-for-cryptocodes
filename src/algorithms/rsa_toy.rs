@@ -1,6 +1,6 @@
 use num_integer::Integer;
 use num_bigint::{BigInt, BigUint};
-use crate::{algorithms::algorithms_traits::{Ciphertext, DifficultyLevel, EncryptionAlgorithmKind, Message}, utils::{generate_two_distinct_primes, modinv}};
+use crate::{algorithms::algorithms_traits::{Ciphertext, CryptoError, DifficultyLevel, EncryptionAlgorithmKind, Message}, utils::{generate_two_distinct_primes, modinv}};
 
 use super::{algorithms_traits::EncryptionAlgorithm, EncryptionPublicData};
 
@@ -16,12 +16,11 @@ impl EncryptionAlgorithm for RsaToy {
     }
 
     // TODO - возвращаемое значение сделать просто Vec<u8> и переделать алгоритм под вычисление количества байт на число
-    fn encode(&self, message: Message) -> Ciphertext {
+    fn encode(&self, message: Message) -> Result<Ciphertext, CryptoError> {
         let message = match message {
             Message::Rsa(v) => v,
-            Message::ElGamal { message, k } => {
-                println!("Неподдерживаемый тип сообщения");
-                String::new()
+            other => {
+                return Err(CryptoError::UnsupportedMessageType { expected: "RSA", got: other.kind_name() });
             }
         };
         let bytes = message.as_bytes();
@@ -46,15 +45,17 @@ impl EncryptionAlgorithm for RsaToy {
             i += chunk_size;
         }
 
-        Ciphertext::Rsa(Self::convert_encoded_to_bytes(encoded))
+        Ok(Ciphertext::Rsa(Self::convert_encoded_to_bytes(encoded)))
     }
 
-    fn decode(&self, bytes: Ciphertext) -> String {
+    fn decode(&self, bytes: Ciphertext) -> Result<String, CryptoError> {
         let bytes = match bytes {
             Ciphertext::Rsa(v ) => v,
-            Ciphertext::ElGamal { c1, c2 } => {
-                println!("Неподдерживаемый тип шифротекста");
-                Vec::new()
+            other => {
+                return Err(CryptoError::UnsupportedCiphertextType {
+                    expected: "RSA",
+                    got: other.kind_name(),
+                })
             }
         };
         let mut decoded_values: Vec<u8> = Vec::new();
@@ -67,7 +68,7 @@ impl EncryptionAlgorithm for RsaToy {
             decoded_values.extend(block);
         }
 
-        String::from_utf8(decoded_values).unwrap()
+        String::from_utf8(decoded_values).map_err(|_| CryptoError::InvalidUtf8)
     }
 
     fn name(&self) -> &'static str {
@@ -75,7 +76,6 @@ impl EncryptionAlgorithm for RsaToy {
     }
 
     fn print_public_parameters(&self) {
-        println!("\nДлина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
         println!("Публичные данные - ({}, {})\n", &self.public_exponent, &self.modulus);
     }
 
@@ -84,16 +84,10 @@ impl EncryptionAlgorithm for RsaToy {
             Some(v) => {
                 match v {
                     Ciphertext::Rsa(v) => v,
-                    Ciphertext::ElGamal { c1, c2 } => {
-                        println!("Неподдерживаемый тип шифротекста");
-                        Vec::new()
-                    }
+                    other => panic!("Неожиданный формат шифротекста: {}", other.kind_name()),
                 }
             }
-            None => {
-                println!("Отсутствует шифротекст");
-                Vec::new()
-            }
+            None => Vec::new(),
             
         };
         EncryptionPublicData::Rsa { public_exponent: self.public_exponent.clone(), modulus: self.modulus.clone(), ciphertext: Some(ciphertext) }
@@ -121,8 +115,7 @@ impl RsaToy {
         let _n = p * q;
 
         let mut open_exponent: Option<BigUint> = None;
-        // TODO - насчет этого хз. Сейчас тут нельзя управлять этим, но ка будто для песочницы норм же?
-        for candidate in [BigUint::from(3u8), BigUint::from(5u8), BigUint::from(17u8), BigUint::from(257u16)] { // TODO - лучше сделать
+        for candidate in [BigUint::from(3u8), BigUint::from(5u8), BigUint::from(17u8), BigUint::from(257u16)] {
             if phi.gcd(&candidate) == BigUint::from(1u8) {
                 open_exponent = Some(candidate);
                 break;
@@ -132,7 +125,7 @@ impl RsaToy {
 
         let d = modinv(&BigInt::from(open_exponent.clone()), &BigInt::from(phi.clone()))
             .and_then(|x| x.to_biguint())
-            .expect("modinv failed");
+            .expect("modinv failed when generating RSA key");
 
         (d, open_exponent, _n)
         

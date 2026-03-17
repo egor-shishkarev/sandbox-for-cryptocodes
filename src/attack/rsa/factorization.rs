@@ -2,7 +2,7 @@ use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}, time::{Duration, Instant}
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{ToPrimitive, Zero};
 use crate::{algorithms::{EncryptionPublicData}, attack::attack_trait::EncryptionAttack, attack_report::{AttackReport, AttackResult}, utils::modinv};
-pub struct BruteForceFactorizationAttack {} // Потом можно добавить ограничения, типы и т.д.
+pub struct BruteForceFactorizationAttack {}
 
 #[derive(PartialEq)]
 enum AttackError {
@@ -14,10 +14,6 @@ impl EncryptionAttack for BruteForceFactorizationAttack {
     fn name(&self) -> String {
         "Атака факторизацией (brute force)".to_string()
     }
-
-    // fn iterations_explain(&self) -> &'static str {
-    //     "Количество повторов цикла в которых мы раскладываем modulus на множители"
-    // }
 
     fn run(&self, cancel: Arc<AtomicBool>, seed: u64, public_data: EncryptionPublicData) -> AttackReport {
         let (public_exponent, modulus, ciphertext) = match public_data {
@@ -99,8 +95,6 @@ impl BruteForceFactorizationAttack {
         Ok((first_prime, second_prime, iterations))
     }  
 
-    //? По идее ничего страшного в том, что метод встречается в двух местах нет с точки зрения предметной области.
-    // Так как мы не можем использовать decode функцию из RsaToy, она нам недоступна
     fn decode(private_exponent: BigUint, modulus: BigUint, bytes: &Vec<Vec<u8>>) -> String {
         let mut decoded_values: Vec<u8> = Vec::new();
 

@@ -1,8 +1,8 @@
-use num_bigint::{BigInt, BigUint, ToBigInt};
-use num_traits::{One, ToPrimitive, Zero};
+use num_bigint::{BigUint, ToBigInt};
+use num_traits::{One, ToPrimitive};
 use rand::Rng;
 use rand_chacha::ChaCha20Rng;
-use crate::{algorithms::algorithms_traits::{Ciphertext, DifficultyLevel, EncryptionAlgorithmKind, Message}, utils::{generate_weak_prime, generate_safe_prime, modinv, random_in_range, rng_from_seed}};
+use crate::{algorithms::algorithms_traits::{Ciphertext, CryptoError, DifficultyLevel, EncryptionAlgorithmKind, Message}, utils::{generate_weak_prime, generate_safe_prime, modinv, random_in_range, rng_from_seed}};
 
 use super::{algorithms_traits::EncryptionAlgorithm, EncryptionPublicData};
 
@@ -18,69 +18,64 @@ impl EncryptionAlgorithm for ElGamalToy {
         EncryptionAlgorithmKind::ElGamal
     }
 
-    fn encode(&self, message: Message) -> Ciphertext {
+    fn encode(&self, message: Message) -> Result<Ciphertext, CryptoError> {
         let (message, k) = match message {
-            Message::ElGamal{message, k} => (message, k),
-            Message::Rsa(_) => {
-                println!("Неподдерживаемый тип сообщения");
-                (BigUint::zero(), BigUint::zero())
+            Message::ElGamal { message, k } => (message, k),
+            other => {
+                return Err(CryptoError::UnsupportedMessageType {
+                    expected: "ElGamal",
+                    got: other.kind_name(),
+                })
             }
         };
 
         let c1 = self.generator.modpow(&k, &self.modulus);
         let c2 = message * self.key.modpow(&k, &self.modulus);
 
-        Ciphertext::ElGamal { c1, c2 }
+        Ok(Ciphertext::ElGamal { c1, c2 })
     }
 
-    fn decode(&self, bytes: Ciphertext) -> String {
+    fn decode(&self, bytes: Ciphertext) -> Result<String, CryptoError> {
         let (c1, c2) = match bytes {
-            Ciphertext::ElGamal{c1 , c2} => (c1, c2),
-            Ciphertext::Rsa(_) => {
-                println!("Неподдерживаемый тип шифротекста");
-                (BigUint::zero(), BigUint::zero())
-            },
+            Ciphertext::ElGamal { c1, c2 } => (c1, c2),
+            other => {
+                return Err(CryptoError::UnsupportedCiphertextType {
+                    expected: "ElGamal",
+                    got: other.kind_name(),
+                })
+            }
         };
 
         let s = c1.modpow(&self.secret_key, &self.modulus);
         let s_inv = match modinv(&s.to_bigint().unwrap(), &self.modulus.to_bigint().unwrap()) {
             Some(v) => v,
-            None => {
-                println!("Не удалось получить s^-1");
-                BigInt::zero()
-            }
+            None => return Err(CryptoError::InverseDoesNotExist),
         };
         let message = (c2 * s_inv.to_biguint().unwrap()) % &self.modulus;
-        message.to_string()
+        Ok(message.to_string())
     }
 
     fn name(&self) -> &'static str {
-        "El Gamal"
+        "ElGamal"
     }
 
     fn print_public_parameters(&self) {
-        println!("\nДлина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
         println!("Публичные данные - ({}, {}, {})\n", &self.modulus, &self.generator, &self.key);
     }
 
     fn get_public_data(&self, ciphertext: Option<Ciphertext>) -> EncryptionPublicData {
-        let (c1, c2) = match ciphertext {
+        let ciphertext = match ciphertext {
             Some(v) => {
                 match v {
-                    Ciphertext::ElGamal { c1, c2 } => (c1, c2),
-                    Ciphertext::Rsa(_) => {
-                        println!("Неподдерживаемый тип шифротекста");
-                        (BigUint::zero(), BigUint::zero())
-                    }
+                    Ciphertext::ElGamal { c1, c2 } => Some((c1, c2)),
+                    other => panic!("Неожиданный формат шифротекста: {}", other.kind_name()),
                 }
             }
-            None => {
-                (BigUint::zero(), BigUint::zero())
-            }
+            None => None
             
         };
 
-        EncryptionPublicData::ElGamal { modulus: self.modulus.clone(), generator: self.generator.clone(), key: self.key.clone(), ciphertext: (c1, c2) }
+        EncryptionPublicData::ElGamal { modulus: self.modulus.clone(), generator: self.generator.clone(), key: self.key.clone(), ciphertext: ciphertext }
     }
 }
 
@@ -106,7 +101,6 @@ impl ElGamalToy {
         let is_weak_prime = rng.gen_bool(0.3);
 
         if is_weak_prime {
-            println!("Слабое простое число!");
             return generate_weak_prime(rng, prime_length);
         } else {
             return generate_safe_prime(rng, prime_length)
@@ -117,7 +111,7 @@ impl ElGamalToy {
         let (modulus, q) = Self::generate_prime(rng, prime_length);
         let generator = match Self::get_generator(&modulus, &q) {
             Some(v) => BigUint::from(v),
-            None => BigUint::zero(), // TODO - ну не ноль конечно же, но хз пока что сюда проставить
+            None => panic!("Не удалось получить генератор для алгоритма ElGamal"),
         };
 
         (modulus, generator)

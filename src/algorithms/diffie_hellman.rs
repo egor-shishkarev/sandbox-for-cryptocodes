@@ -1,7 +1,7 @@
 use std::usize;
 
 use num_bigint::BigUint;
-use num_traits::{Zero, One, ToPrimitive};
+use num_traits::{One, ToPrimitive};
 use rand_chacha::ChaCha20Rng;
 
 use crate::utils::{generate_safe_prime, random_in_range, rng_from_seed};
@@ -21,7 +21,6 @@ pub struct DiffieHellmanToy {
     pub bob: Party,
 }
 
-// Можно еще сделать создание алгоритма с нужными параметрами, допустим длина секретов и т.д.
 impl KeyExchangeAlgorithm for DiffieHellmanToy {
     fn establish_shared_secret(&self) -> BigUint {
         let alice_shared = self.bob.public_message.modpow(&self.alice.secret, &self.modulus);
@@ -37,7 +36,6 @@ impl KeyExchangeAlgorithm for DiffieHellmanToy {
     }
 
     fn print_public_parameters(&self) {
-        println!("\nДлина ключа (модуля) в битах - {}", &self.modulus.to_bytes_be().len() * 8);
         println!("Публичные данные - ({}, {})\n", &self.modulus, &self.generator);
         println!("Сообщение от Алисы - {}", &self.alice.public_message);
         println!("Сообщение от Боба - {}", &self.bob.public_message);
@@ -63,7 +61,6 @@ impl DiffieHellmanToy {
             generator,
             alice: Party { secret: alice_secret.clone(), public_message: alice_message.clone() },
             bob: Party { secret: bob_secret.clone(), public_message: bob_message.clone() },
-            // shared_secret: Self::generate_shared_secret(&bob_message, &alice_secret, &modulus),
         }
     }
 
@@ -71,7 +68,8 @@ impl DiffieHellmanToy {
         let (modulus, q) = generate_safe_prime(rng, prime_length);
         let generator = match Self::get_generator(&modulus, &q) {
             Some(v) => BigUint::from(v),
-            None => BigUint::zero(), // TODO - ну не ноль конечно же, но хз пока что сюда проставить
+            // Так как теперь длина простых чисел не выбирается пользователем, то можно и паниковать - это моя ошибка
+            None => panic!("Не удалось найти генератор для алгоритма Diffie-Hellman"),
         };
 
         (modulus, generator, q)

@@ -43,7 +43,6 @@ fn main() {
             break;
         }
 
-        // TODO - можно просто просить ввести сид, и если в воде не число, то брать рандомный сид
         let seeded_algorithm_choice = read_from_ui(&ui_rx, "\nХотите ли Вы использовать определенный seed? (Y/N)");
         if seeded_algorithm_choice == "Y".to_string() {
             seed = read_usize_from_ui(&ui_rx,"\nВведите seed", |_v| true) as u64;
@@ -78,13 +77,18 @@ fn main() {
                     EncryptionAlgorithmKind::Rsa => {
                         algorithm.print_public_parameters(); 
                         let message = read_from_ui(&ui_rx, "Введите сообщение, которое хотите зашифровать");
-                        let ciphertext = algorithm.encode(Message::Rsa(message.clone()));
-                        // Пока не будем это показывать, потому что я не совсем понимаю как это лучше всего делать и зачем
-                        //println!("Закодированное сообщение в виде HEX - {}", get_utf8_representation(encoded_values.clone()));
+                        let ciphertext = match algorithm.encode(Message::Rsa(message.clone())) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                println!("Ошибка шифрования: {e}");
+                                read_from_ui(&ui_rx, "\nНажмите Enter чтобы продолжить...");
+                                continue;
+                            }
+                        };
 
                         let encoded_values: Vec<Vec<u8>> = match ciphertext {
                             Ciphertext::Rsa(v) => {
-                                debug_assert!(algorithm.decode(Ciphertext::Rsa(v.clone())) == message);
+                                debug_assert!(algorithm.decode(Ciphertext::Rsa(v.clone())).is_ok_and(|s| s == message));
                                 v
                             }
                             _ => Vec::new(),
@@ -108,7 +112,7 @@ fn main() {
                         algorithm.print_public_parameters(); 
                         let k_constraint = match algorithm.get_public_data(None) {
                             algorithms::EncryptionPublicData::ElGamal { modulus, generator: _, key: _, ciphertext: _ } => modulus - BigUint::from(2u8),
-                            _ => BigUint::zero(),
+                            _ => BigUint::zero(), //* Сюда не должны никогда заходить
                         };
                         let message = read_biguint_from_ui(&ui_rx, &format!("Введите число, которое хотите зашифровать (не более {})", k_constraint), |v| v < k_constraint);
                         let prompt = format!("\nВведите число k не большее {} или 0 для случайного выбора", k_constraint.to_string());
@@ -117,14 +121,21 @@ fn main() {
                             let mut rng = rng_from_seed(seed);
                             k = random_in_range(&mut rng, &k_constraint);
                         }
-                        let encoded_values = algorithm.encode(Message::ElGamal{ message: BigUint::from(message.clone()), k });
+                        let encoded_values = match algorithm.encode(Message::ElGamal{ message: BigUint::from(message.clone()), k }) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                println!("Ошибка шифрования: {e}");
+                                read_from_ui(&ui_rx, "\nНажмите Enter чтобы продолжить...");
+                                continue;
+                            }
+                        };
                         let (first_value, second_value) = match encoded_values {
                             Ciphertext::ElGamal { c1, c2 } => {
                                 let decoded = algorithm.decode(Ciphertext::ElGamal{c1: c1.clone(), c2: c2.clone()});
-                                debug_assert!(decoded == message.to_string());
+                                debug_assert!(decoded.is_ok_and(|s| s == message.to_string()));
                                 (c1, c2)
                             },
-                            _ => (BigUint::zero(), BigUint::zero()),
+                            _ => (BigUint::zero(), BigUint::zero()), //* Сюда не должны никогда заходить
                         };
 
                         let allowed_attacks: Vec<EncryptionAttackFactory> = vec![
@@ -146,7 +157,6 @@ fn main() {
             AlgorithmType::KeyExchange(algorithm) => {
                 algorithm.print_public_parameters();
 
-                // TODO - можем печатать секрет, но не уверен, что надо, у нас все таки атака, а так мы уже знаем, что там
                 println!("Секретное общее значение - {}", algorithm.establish_shared_secret());
 
                 let allowed_attacks: Vec<KeyExchangeAttackFactory> = vec![
